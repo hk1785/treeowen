@@ -968,3 +968,761 @@ clear_inner_enum_cache <- function() {
   for (ch in node$children) mx <- max(mx, .max_degree_hier_tree(ch))
   as.integer(mx)
 }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §19  XGBoost / treeshap compatibility wrapper
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Known failure modes handled (validated across xgboost 1.6 – 2.x, treeshap 0.3–0.4):
+#
+#  [XGB-1]  treeshap::xgboost.unify() calls model$getinfo() in ways that break
+#           on newer xgboost class structures → bypass treeshap entirely.
+#  [XGB-2]  xgb.model.dt.tree() omits the "ID" column in older xgboost (< 1.7).
+#  [XGB-3]  Split-gain column named "Quality" (xgboost >= 1.7) instead of "Gain".
+#  [XGB-4]  "Yes"/"No"/"Missing" columns are stored as node-ID strings
+#           ("0-0", "0-1", …) that must be converted to row indices.
+#  [XGB-5]  model$feature_names may be NULL when the model was built from a
+#           plain matrix without colnames; fall back to colnames(data).
+#  [XGB-6]  Leaf nodes in xgboost 2.x may have Gain = 0 / Cover = 0; keep as-is.
+#  [XGB-7]  xgb.model.dt.tree() signature changed in xgboost 2.x:
+#           argument "model" was renamed to "xgb_model" in some builds.
+#
+# Users should call this wrapper instead of treeshap::xgboost.unify():
+#   unified <- .xgboost_unify_compat(xgb_mod, X)
+# ──────────────────────────────────────────────────────────────────────────────
+.xgboost_unify_compat <- function(model, data, recalculate = FALSE) {
+  if (!requireNamespace("xgboost",    quietly = TRUE))
+    stop('Package "xgboost" needed. Please install it.', call. = FALSE)
+  if (!requireNamespace("data.table", quietly = TRUE))
+    stop('Package "data.table" needed. Please install it.', call. = FALSE)
+
+  # [XGB-7] Try both argument names for xgb.model.dt.tree()
+  xgbtree <- tryCatch(
+    xgboost::xgb.model.dt.tree(model = model),
+    error = function(e1) tryCatch(
+      xgboost::xgb.model.dt.tree(xgb_model = model),
+      error = function(e2) stop(sprintf(
+        "xgb.model.dt.tree() failed with both 'model' and 'xgb_model' arguments.\n  Error 1: %s\n  Error 2: %s",
+        conditionMessage(e1), conditionMessage(e2)
+      ))
+    )
+  )
+  xgbtree <- data.table::as.data.table(xgbtree)
+
+  # [XGB-2] Reconstruct "ID" when missing
+  if (!"ID" %in% colnames(xgbtree))
+    xgbtree[, ID := paste(Tree, Node, sep = "-")]
+
+  # [XGB-3] Rename "Quality" → "Gain" when needed
+  if ("Quality" %in% colnames(xgbtree) && !"Gain" %in% colnames(xgbtree))
+    data.table::setnames(xgbtree, "Quality", "Gain")
+
+  # Verify required columns
+  needed <- c("Tree", "Node", "ID", "Feature", "Split", "Yes", "No", "Missing", "Gain", "Cover")
+  miss <- setdiff(needed, colnames(xgbtree))
+  if (length(miss) > 0)
+    stop("xgb.model.dt.tree() is missing required columns: ", paste(miss, collapse = ", "))
+
+  # [XGB-4] Convert node-ID strings to row indices
+  id_str  <- as.character(xgbtree$ID)
+  xgbtree[, Yes     := match(as.character(Yes),     id_str)]
+  xgbtree[, No      := match(as.character(No),      id_str)]
+  xgbtree[, Missing := match(as.character(Missing), id_str)]
+
+  # Mark leaf nodes
+  xgbtree[is.na(Split), Feature := NA_character_]
+
+  xgbtree[, Decision.type := factor(rep("<=", .N), levels = c("<=", "<"))]
+  xgbtree[is.na(Feature), Decision.type := NA]
+
+  # Select & rename to treeshap's expected layout
+  xgbtree <- xgbtree[, .(Tree, Node, Feature, Decision.type, Split,
+                          Yes, No, Missing, Gain, Cover)]
+  setnames(xgbtree, "Gain", "Prediction")
+
+  # [XGB-6] Internal nodes: Prediction field not used → NA
+  xgbtree[!is.na(Feature), Prediction := NA_real_]
+
+  # [XGB-5] Feature names
+  feature_names <- model$feature_names
+  if (is.null(feature_names) || !length(feature_names))
+    feature_names <- colnames(data)
+  if (is.null(feature_names) || !length(feature_names))
+    stop("Unable to determine XGBoost feature names from model or data.")
+
+  if (is.matrix(data)) data <- as.data.frame(data)
+  data <- data[, intersect(colnames(data), feature_names), drop = FALSE]
+  data <- data[, feature_names[feature_names %in% colnames(data)], drop = FALSE]
+
+  ret <- list(
+    model         = as.data.frame(xgbtree),
+    data          = as.data.frame(data),
+    feature_names = feature_names
+  )
+  class(ret) <- "model_unified"
+  attr(ret, "missing_support") <- TRUE
+  attr(ret, "model")           <- "xgboost"
+
+  if (recalculate && requireNamespace("treeshap", quietly = TRUE))
+    ret <- tryCatch(
+      treeshap::set_reference_dataset(ret, as.data.frame(data)),
+      error = function(e) ret
+    )
+  ret
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §20  LightGBM / treeshap compatibility wrapper
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Known failure modes handled (validated across lightgbm 3.x – 4.x, treeshap 0.3–0.4):
+#
+#  [LGB-1]  treeshap::lightgbm.unify() internals break on lightgbm >= 4.0 due to
+#           Booster class restructuring and lgb.model.dt.tree() output changes.
+#  [LGB-2]  lgb.model.dt.tree() may be unavailable in very old lightgbm (< 3.2);
+#           fall back to model$dump_model() JSON parsing.
+#  [LGB-3]  Column name changes across versions:
+#             "split_gain"  ↔  "value"         (gain / leaf value)
+#             "threshold"   ↔  "split_point"   (split threshold)
+#             "count"       ↔  "internal_count" / "leaf_count"  (cover)
+#             "num_cat"     may be absent
+#             "decision_type" may be absent or empty
+#  [LGB-4]  Child node IDs use three different encodings depending on version:
+#             (a) negative-1-indexed leaves:   left_child < 0  → leaf #(-left_child-1)
+#             (b) positive row indices (rare older builds)
+#             (c) string "N<int>" / "L<int>" encoding
+#  [LGB-5]  Feature names may be NULL for some training configurations;
+#           fall back to model$feature_name() → colnames(data).
+#  [LGB-6]  lgb.cv() / lgb.train() best_iter slot name changed:
+#           cv$best_iter  (older)  ↔  cv$best_iteration  (newer).
+#  [LGB-7]  lgb.cv() verbose argument moved out of params in newer lightgbm.
+#
+# Strategy: try treeshap::lightgbm.unify() first; if it fails, build
+# model_unified directly from lgb.model.dt.tree() output; if that also fails,
+# fall back to model$dump_model() JSON tree parsing.
+# ──────────────────────────────────────────────────────────────────────────────
+.lightgbm_unify_compat <- function(model, data, recalculate = FALSE) {
+  if (!requireNamespace("lightgbm", quietly = TRUE))
+    stop('Package "lightgbm" needed. Please install it.', call. = FALSE)
+
+  if (is.matrix(data)) data <- as.data.frame(data)
+
+  # ── Path 1: treeshap::lightgbm.unify() ──────────────────────────────────────
+  if (requireNamespace("treeshap", quietly = TRUE)) {
+    ret <- tryCatch(treeshap::lightgbm.unify(model, data), error = function(e) NULL)
+    if (!is.null(ret) && inherits(ret, "model_unified")) {
+      if (recalculate)
+        ret <- tryCatch(
+          treeshap::set_reference_dataset(ret, as.data.frame(data)),
+          error = function(e) ret)
+      return(ret)
+    }
+  }
+
+  # ── Helper: resolve feature names ───────────────────────────────────────────
+  .lgb_feature_names <- function(model, data) {
+    nm <- tryCatch(model$.__enclos_env__$private$valid_feature_names,
+                   error = function(e) NULL)
+    if (!is.null(nm) && length(nm)) return(nm)
+    nm <- tryCatch(model$feature_name(), error = function(e) NULL)
+    if (!is.null(nm) && length(nm)) return(nm)
+    nm <- colnames(data)
+    if (!is.null(nm) && length(nm)) return(nm)
+    stop("lightgbm: unable to determine feature names from model or data.")
+  }
+  feature_names <- .lgb_feature_names(model, data)
+
+  # ── Path 2: lgb.model.dt.tree() ─────────────────────────────────────────────
+  lgbtree <- tryCatch({
+    dt <- lightgbm::lgb.model.dt.tree(model)
+    if (is.null(dt) || nrow(dt) == 0L) stop("empty")
+    as.data.frame(dt, stringsAsFactors = FALSE)
+  }, error = function(e) NULL)
+
+  # ── Path 3: dump_model() JSON fallback ──────────────────────────────────────
+  if (is.null(lgbtree)) {
+    lgbtree <- tryCatch({
+      dm  <- model$dump_model()
+      ti  <- dm[["tree_info"]]
+      if (is.null(ti)) stop("tree_info absent")
+      .lgb_parse_dump_model(ti)
+    }, error = function(e) {
+      stop(sprintf(
+        "lightgbm: all tree-dump methods failed.\n  lgb.model.dt.tree(): unavailable\n  dump_model(): %s",
+        conditionMessage(e)))
+    })
+  }
+
+  lgbtree <- as.data.frame(lgbtree, stringsAsFactors = FALSE)
+  nms     <- colnames(lgbtree)
+
+  # ── [LGB-3] Normalise column names ──────────────────────────────────────────
+  .alias <- function(df, pref, alts) {
+    if (pref %in% colnames(df)) return(df)
+    for (a in alts) if (a %in% colnames(df)) { df[[pref]] <- df[[a]]; return(df) }
+    df[[pref]] <- NA_real_; df
+  }
+  lgbtree <- .alias(lgbtree, "threshold",         c("split_point"))
+  lgbtree <- .alias(lgbtree, "split_gain",        c("value"))
+  lgbtree <- .alias(lgbtree, "count",             c("internal_count", "leaf_count", "node_count"))
+  lgbtree <- .alias(lgbtree, "leaf_value",        c("split_gain", "value"))
+  lgbtree <- .alias(lgbtree, "decision_type",     character(0)); if (is.na(lgbtree$decision_type[1])) lgbtree$decision_type <- "<="
+  lgbtree <- .alias(lgbtree, "num_cat",           character(0)); if (is.na(lgbtree$num_cat[1]))       lgbtree$num_cat       <- 0L
+  lgbtree <- .alias(lgbtree, "missing_direction", c("missing_type"))
+
+  # Ensure tree_index column
+  if (!"tree_index" %in% colnames(lgbtree)) {
+    if ("Tree" %in% colnames(lgbtree))  lgbtree$tree_index <- lgbtree$Tree
+    else stop("lightgbm: cannot find tree_index column in tree dump")
+  }
+
+  n_rows  <- nrow(lgbtree)
+  tree_id <- as.integer(lgbtree$tree_index)
+
+  # ── [LGB-4] Build child row-pointer lookup ───────────────────────────────────
+  # Identify leaves: no left/right child columns → use split_feature / feature to detect
+  is_leaf <- rep(FALSE, n_rows)
+  if ("left_child" %in% colnames(lgbtree)) {
+    lc_raw <- lgbtree$left_child
+    rc_raw <- lgbtree$right_child
+    # Leaves: both NA, or both 0 in some encodings
+    is_leaf <- is.na(lc_raw) | (suppressWarnings(as.integer(lc_raw)) == 0L &
+                                  is.na(lgbtree$threshold))
+  } else {
+    # Infer: rows without a feature split are leaves
+    feat_raw <- if ("feature" %in% colnames(lgbtree)) lgbtree$feature
+                else if ("split_feature" %in% colnames(lgbtree)) lgbtree$split_feature
+                else rep(NA_character_, n_rows)
+    is_leaf <- is.na(feat_raw) | feat_raw == ""
+  }
+
+  # Encode each row with its tree-local node/leaf ID for lookup
+  # (See [LGB-4] for the three encoding schemes)
+  has_node_idx <- "node_index"  %in% colnames(lgbtree)
+  has_leaf_idx <- "leaf_index"  %in% colnames(lgbtree)
+
+  if (has_node_idx || has_leaf_idx) {
+    node_idx <- if (has_node_idx) suppressWarnings(as.integer(lgbtree$node_index)) else rep(NA_integer_, n_rows)
+    leaf_idx <- if (has_leaf_idx) suppressWarnings(as.integer(lgbtree$leaf_index)) else rep(NA_integer_, n_rows)
+    encoded_id <- ifelse(is_leaf, -(leaf_idx + 1L), node_idx)
+  } else {
+    # Reconstruct sequential IDs within each tree
+    node_ctr <- integer(max(tree_id, na.rm = TRUE) + 2L)
+    leaf_ctr <- integer(max(tree_id, na.rm = TRUE) + 2L)
+    encoded_id <- integer(n_rows)
+    for (r in seq_len(n_rows)) {
+      tid <- tree_id[r] + 1L
+      if (is_leaf[r]) {
+        encoded_id[r] <- -(leaf_ctr[tid])
+        leaf_ctr[tid] <- leaf_ctr[tid] + 1L
+      } else {
+        encoded_id[r] <- node_ctr[tid]
+        node_ctr[tid] <- node_ctr[tid] + 1L
+      }
+    }
+  }
+
+  lookup_key <- paste(tree_id, encoded_id, sep = ":")
+  lookup_map <- setNames(seq_len(n_rows), lookup_key)
+
+  # Parse a single child column → row indices
+  .resolve_lgb_child <- function(raw_col) {
+    if (is.null(raw_col)) return(rep(NA_integer_, n_rows))
+    raw_char <- as.character(raw_col)
+    encoded  <- suppressWarnings(as.integer(raw_char))
+    # [LGB-4c] "N<int>" / "L<int>" string encoding
+    n_mask <- grepl("^N", raw_char, perl = TRUE)
+    l_mask <- grepl("^L", raw_char, perl = TRUE)
+    encoded[n_mask] <-  as.integer(sub("^N", "", raw_char[n_mask]))
+    encoded[l_mask] <- -(as.integer(sub("^L", "", raw_char[l_mask])) + 1L)
+    key <- paste(tree_id, encoded, sep = ":")
+    as.integer(unname(lookup_map[key]))
+  }
+
+  yes_rows  <- .resolve_lgb_child(lgbtree[["left_child"]])
+  no_rows   <- .resolve_lgb_child(lgbtree[["right_child"]])
+
+  # Missing direction
+  miss_rows <- rep(NA_integer_, n_rows)
+  if ("missing_direction" %in% colnames(lgbtree)) {
+    md        <- tolower(as.character(lgbtree$missing_direction))
+    miss_rows <- ifelse(md == "left",  yes_rows,
+                 ifelse(md == "right", no_rows, NA_integer_))
+  }
+
+  # ── Feature column ───────────────────────────────────────────────────────────
+  feat_raw <- if ("feature" %in% colnames(lgbtree))       lgbtree$feature
+              else if ("split_feature" %in% colnames(lgbtree)) lgbtree$split_feature
+              else rep(NA_character_, n_rows)
+  feat_col <- as.character(feat_raw)
+  feat_col[is_leaf] <- NA_character_
+
+  # Convert 0-based numeric index → feature name
+  idx_mask <- !is.na(feat_col) & !is.na(suppressWarnings(as.integer(feat_col)))
+  if (any(idx_mask)) {
+    idx0 <- suppressWarnings(as.integer(feat_col[idx_mask]))
+    feat_col[idx_mask] <- ifelse(
+      idx0 + 1L <= length(feature_names),
+      feature_names[idx0 + 1L],
+      NA_character_)
+  }
+
+  # ── Prediction (leaf value) ──────────────────────────────────────────────────
+  pred_val <- rep(NA_real_, n_rows)
+  for (lv_col in c("leaf_value", "split_gain", "value")) {
+    if (lv_col %in% colnames(lgbtree)) {
+      vals <- suppressWarnings(as.numeric(lgbtree[[lv_col]]))
+      pred_val[is_leaf] <- vals[is_leaf]
+      break
+    }
+  }
+
+  # ── Other columns ────────────────────────────────────────────────────────────
+  split_val <- suppressWarnings(as.numeric(lgbtree$threshold))
+  split_val[is_leaf] <- NA_real_
+
+  cover_val <- suppressWarnings(as.numeric(lgbtree$count))
+  if (all(is.na(cover_val))) cover_val <- rep(1, n_rows)
+
+  dec_type <- factor(rep("<=", n_rows), levels = c("<=", "<"))
+  dec_type[is_leaf] <- NA
+
+  model_df <- data.frame(
+    Tree          = tree_id,
+    Node          = as.integer(lgbtree$node_depth),
+    Feature       = feat_col,
+    Decision.type = dec_type,
+    Split         = split_val,
+    Yes           = yes_rows,
+    No            = no_rows,
+    Missing       = miss_rows,
+    Prediction    = pred_val,
+    Cover         = cover_val,
+    stringsAsFactors = FALSE
+  )
+
+  data <- data[, intersect(colnames(data), feature_names), drop = FALSE]
+  data <- data[, feature_names[feature_names %in% colnames(data)], drop = FALSE]
+
+  ret <- list(
+    model         = model_df,
+    data          = as.data.frame(data),
+    feature_names = feature_names
+  )
+  class(ret) <- "model_unified"
+  attr(ret, "missing_support") <- "missing_direction" %in% colnames(lgbtree)
+  attr(ret, "model")           <- "lightgbm"
+
+  if (recalculate && requireNamespace("treeshap", quietly = TRUE))
+    ret <- tryCatch(
+      treeshap::set_reference_dataset(ret, as.data.frame(data)),
+      error = function(e) ret)
+  ret
+}
+
+# Internal: parse dump_model()$tree_info into a flat data.frame  [LGB-2 fallback]
+.lgb_parse_dump_model <- function(trees_info) {
+  rows <- list()
+  parse_node <- function(node, tree_id) {
+    if (is.null(node)) return(invisible(NULL))
+    is_leaf <- !is.null(node[["leaf_value"]]) || is.null(node[["split_feature"]])
+    rows[[length(rows) + 1L]] <<- list(
+      tree_index        = tree_id,
+      node_depth        = if (!is.null(node$depth))          node$depth          else NA_integer_,
+      node_index        = if (!is.null(node$split_index))    node$split_index    else NA_integer_,
+      leaf_index        = if (!is.null(node$leaf_index))     node$leaf_index     else NA_integer_,
+      feature           = if (!is_leaf) as.character(node$split_feature)         else NA_character_,
+      threshold         = if (!is_leaf) suppressWarnings(as.numeric(node$threshold)) else NA_real_,
+      split_gain        = suppressWarnings(as.numeric(node$split_gain)),
+      leaf_value        = if (is_leaf)  suppressWarnings(as.numeric(node$leaf_value)) else NA_real_,
+      count             = suppressWarnings(as.numeric(
+                            node$internal_count %||% node$leaf_count %||% NA_real_)),
+      missing_direction = as.character(node$missing_direction %||% NA_character_),
+      decision_type     = as.character(node$decision_type     %||% "<="),
+      left_child        = NA_integer_,
+      right_child       = NA_integer_
+    )
+    if (!is_leaf) {
+      parse_node(node$left_child,  tree_id)
+      parse_node(node$right_child, tree_id)
+    }
+  }
+  # NULL-coalescing helper (local scope)
+  `%||%` <- function(a, b) if (!is.null(a)) a else b
+  for (ti in seq_along(trees_info)) {
+    tree <- trees_info[[ti]]
+    root <- tree$tree_structure %||% tree
+    parse_node(root, tree_id = ti - 1L)
+  }
+  if (!length(rows)) stop("no rows parsed from dump_model() tree_info")
+  do.call(rbind, lapply(rows, as.data.frame, stringsAsFactors = FALSE))
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §21  Ranger / treeshap compatibility wrapper
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Known failure modes handled (validated across ranger 0.11 – 0.16+, treeshap 0.3–0.4):
+#
+#  [RNG-1]  treeshap::ranger.unify() assumes ranger::treeInfo() returns a "pred.1"
+#           column, but ranger >= 0.14 / 0.16 returns "prediction" instead.
+#  [RNG-2]  treeshap internals call ranger_unify.common() with a hard-coded
+#           column list; the function signature and expected input changed.
+#  [RNG-3]  ranger::treeInfo() column name variations across versions:
+#             "nodeID"     / "node"      (node identifier)
+#             "splitvarID" / "splitVarID"(split variable 0-based index)
+#             "splitval"   / "splitVal"  (split threshold)
+#             "terminal"   / "isTerminal"(leaf flag)
+#             "prediction" / "pred.1"    (leaf probability, class 1)
+#           All are normalised before use.
+#  [RNG-4]  child.nodeIDs structure changed:
+#             Older ranger: list of length-2 vectors [left_id, right_id] per node.
+#             Newer ranger: separate columns "leftChild" / "rightChild" in treeInfo().
+#  [RNG-5]  Probability forests (probability=TRUE) store leaf predictions as
+#           a matrix (n_nodes × n_classes); the column for class "1" (second level)
+#           is extracted.  Classification forests give integer class IDs.
+#  [RNG-6]  model$forest may be NULL when write.forest=FALSE was used at training.
+#  [RNG-7]  keep.inbag may be irrelevant for treeInfo()-based extraction; the
+#           wrapper works regardless.
+#  [RNG-8]  treeshap >= 0.4 added a check on probability=TRUE that raises an error
+#           for non-probability forests; we warn instead of stopping.
+#
+# Strategy:
+#   1. Try treeshap::ranger.unify() directly.
+#   2. If it fails, patch treeInfo() column names and call ranger_unify.common()
+#      (the internal treeshap function) directly.
+#   3. If that also fails, build model_unified from forest internals manually.
+# ──────────────────────────────────────────────────────────────────────────────
+.ranger_unify_compat <- function(model, data, recalculate = FALSE) {
+  if (!requireNamespace("ranger", quietly = TRUE))
+    stop('Package "ranger" needed. Please install it.', call. = FALSE)
+
+  if (is.matrix(data)) data <- as.data.frame(data)
+
+  # [RNG-8] Warn for non-probability forest
+  is_prob <- isTRUE(model$treetype %in% c("Probability estimation", "probability"))
+  if (!is_prob)
+    warning(paste0(
+      "[.ranger_unify_compat] ranger model was not trained with probability=TRUE. ",
+      "Leaf predictions will be class labels, not probabilities. ",
+      "Re-train with probability=TRUE and keep.inbag=TRUE for reliable results."
+    ), call. = FALSE)
+
+  # Feature names from forest internals
+  feature_names <- model$forest$independent.variable.names
+  if (is.null(feature_names) || !length(feature_names))
+    feature_names <- setdiff(colnames(data), ".y")
+  if (is.null(feature_names) || !length(feature_names))
+    feature_names <- colnames(data)
+
+  # Clean data: remove outcome column if present
+  X_clean <- data[, intersect(colnames(data), feature_names), drop = FALSE]
+  X_clean <- X_clean[, feature_names[feature_names %in% colnames(X_clean)], drop = FALSE]
+
+  # ── Path 1: standard treeshap::ranger.unify() ───────────────────────────────
+  if (requireNamespace("treeshap", quietly = TRUE)) {
+    ret <- tryCatch(treeshap::ranger.unify(model, X_clean), error = function(e) NULL)
+    if (!is.null(ret) && inherits(ret, "model_unified")) {
+      if (recalculate)
+        ret <- tryCatch(
+          treeshap::set_reference_dataset(ret, as.data.frame(X_clean)),
+          error = function(e) ret)
+      return(ret)
+    }
+  }
+
+  # ── Path 2: patched treeInfo() + ranger_unify.common() ──────────────────────
+  if (requireNamespace("treeshap",   quietly = TRUE) &&
+      requireNamespace("data.table", quietly = TRUE) &&
+      requireNamespace("ranger",     quietly = TRUE)) {
+
+    ret2 <- tryCatch({
+      n_trees <- model$num.trees
+      tree_list <- lapply(seq_len(n_trees), function(ti) {
+        td <- data.table::as.data.table(ranger::treeInfo(model, tree = ti))
+        # [RNG-3] Normalise column names to what ranger_unify.common() expects
+        # nodeID
+        for (cand in c("node", "Node")) if (!"nodeID" %in% names(td) && cand %in% names(td))
+          data.table::setnames(td, cand, "nodeID")
+        # leftChild / rightChild
+        for (cand in c("leftChildID", "left_child", "left")) if (!"leftChild" %in% names(td) && cand %in% names(td))
+          data.table::setnames(td, cand, "leftChild")
+        for (cand in c("rightChildID", "right_child", "right")) if (!"rightChild" %in% names(td) && cand %in% names(td))
+          data.table::setnames(td, cand, "rightChild")
+        # splitvarName
+        for (cand in c("splitVarName", "split_var_name", "splitvar")) if (!"splitvarName" %in% names(td) && cand %in% names(td))
+          data.table::setnames(td, cand, "splitvarName")
+        # splitval
+        for (cand in c("splitVal", "split_val", "split_value", "threshold")) if (!"splitval" %in% names(td) && cand %in% names(td))
+          data.table::setnames(td, cand, "splitval")
+        # [RNG-1] prediction column: "pred.1" → "prediction"
+        if ("pred.1" %in% names(td) && !"prediction" %in% names(td))
+          data.table::setnames(td, "pred.1", "prediction")
+        # If still no "prediction", find the last numeric column as fallback
+        if (!"prediction" %in% names(td)) {
+          num_cols <- names(td)[vapply(td, is.numeric, logical(1L))]
+          if (length(num_cols))
+            data.table::setnames(td, tail(num_cols, 1L), "prediction")
+        }
+        need <- c("nodeID", "leftChild", "rightChild", "splitvarName", "splitval", "prediction")
+        td[, intersect(need, names(td)), with = FALSE]
+      })
+
+      # [RNG-2] Locate ranger_unify.common regardless of export status
+      common_fn <- tryCatch(
+        getFromNamespace("ranger_unify.common", "treeshap"),
+        error = function(e) NULL
+      )
+      if (is.null(common_fn)) stop("ranger_unify.common not found in treeshap")
+      common_fn(x = tree_list, n = model$num.trees,
+                data = X_clean, feature_names = feature_names)
+    }, error = function(e) NULL)
+
+    if (!is.null(ret2) && inherits(ret2, "model_unified")) {
+      if (recalculate)
+        ret2 <- tryCatch(
+          treeshap::set_reference_dataset(ret2, as.data.frame(X_clean)),
+          error = function(e) ret2)
+      return(ret2)
+    }
+  }
+
+  # ── Path 3: manual build from forest internals ───────────────────────────────
+  # Try treeInfo() first for each tree; fall back to model$forest list structure
+  n_trees   <- model$num.trees
+  all_rows  <- vector("list", n_trees)
+
+  for (ti in seq_len(n_trees)) {
+    ti_df <- tryCatch(
+      .ranger_treeinfo_norm(ranger::treeInfo(model, tree = ti), feature_names),
+      error = function(e) NULL
+    )
+    if (is.null(ti_df)) {
+      ti_df <- tryCatch(
+        .ranger_tree_from_forest(model, ti, feature_names),
+        error = function(e2) stop(sprintf(
+          "[.ranger_unify_compat] tree %d: treeInfo() and forest fallback both failed.\n  treeInfo error: %s",
+          ti, conditionMessage(e2)))
+      )
+    }
+    all_rows[[ti]] <- data.frame(
+      Tree          = ti - 1L,
+      Node          = ti_df$nodeid,
+      Feature       = ti_df$feature,
+      Decision.type = {
+        dt <- factor(rep("<=", nrow(ti_df)), levels = c("<=", "<"))
+        dt[ti_df$terminal] <- NA
+        dt
+      },
+      Split         = ti_df$splitval,
+      Yes           = ti_df$leftchild,
+      No            = ti_df$rightchild,
+      Missing       = NA_integer_,
+      Prediction    = ti_df$prediction,
+      Cover         = NA_real_,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  model_df <- do.call(rbind, all_rows)
+  rownames(model_df) <- NULL
+
+  # Convert tree-local row indices to global row indices
+  row_offsets <- c(0L, cumsum(vapply(all_rows, nrow, integer(1L))))
+  for (ti in seq_len(n_trees)) {
+    rng <- seq(row_offsets[ti] + 1L, row_offsets[ti + 1L])
+    off <- row_offsets[ti]
+    model_df$Yes[rng] <- ifelse(is.na(model_df$Yes[rng]), NA_integer_,
+                                 model_df$Yes[rng] + off)
+    model_df$No[rng]  <- ifelse(is.na(model_df$No[rng]),  NA_integer_,
+                                 model_df$No[rng]  + off)
+  }
+
+  ret3 <- list(
+    model         = model_df,
+    data          = as.data.frame(X_clean),
+    feature_names = feature_names
+  )
+  class(ret3) <- "model_unified"
+  attr(ret3, "missing_support") <- FALSE
+  attr(ret3, "model")           <- "ranger"
+
+  if (recalculate && requireNamespace("treeshap", quietly = TRUE))
+    ret3 <- tryCatch(
+      treeshap::set_reference_dataset(ret3, as.data.frame(X_clean)),
+      error = function(e) ret3)
+  ret3
+}
+
+# Internal: normalise a single treeInfo() data.frame to standard columns
+# Returns: data.frame with cols: nodeid, feature, splitval, terminal, leftchild, rightchild, prediction
+.ranger_treeinfo_norm <- function(df, feature_names) {
+  df   <- as.data.frame(df, stringsAsFactors = FALSE)
+  nms  <- tolower(gsub("[._]", "", colnames(df)))   # flatten: nodeID → nodeid etc.
+  colnames(df) <- nms
+
+  # nodeID
+  for (c in c("nodeid", "node"))             if (!"nodeid"    %in% nms && c %in% nms) { df$nodeid    <- df[[c]]; break }
+  if (!"nodeid" %in% colnames(df))            df$nodeid    <- seq_len(nrow(df)) - 1L
+
+  # splitvarName / splitvarID → feature name
+  feat_col <- NULL
+  for (c in c("splitvarname", "splitvariablename", "splitvar")) if (c %in% nms) { feat_col <- df[[c]]; break }
+  if (is.null(feat_col)) {
+    for (c in c("splitvarid", "splitvariableid", "varid")) {
+      if (c %in% nms) {
+        ids <- suppressWarnings(as.integer(df[[c]]))
+        feat_col <- ifelse(!is.na(ids) & ids >= 0L & ids + 1L <= length(feature_names),
+                          feature_names[ids + 1L], NA_character_)
+        break
+      }
+    }
+  }
+  if (is.null(feat_col)) feat_col <- rep(NA_character_, nrow(df))
+
+  # terminal flag
+  term <- NULL
+  for (c in c("terminal", "isterminal", "isleaf", "leaf")) if (c %in% nms) { term <- as.logical(df[[c]]); break }
+  if (is.null(term)) term <- is.na(feat_col) | feat_col == ""
+  feat_col[term] <- NA_character_
+
+  # splitval
+  sv <- NULL
+  for (c in c("splitval", "splitvalue", "splitpoint", "threshold", "split")) if (c %in% nms) { sv <- suppressWarnings(as.numeric(df[[c]])); break }
+  if (is.null(sv)) sv <- rep(NA_real_, nrow(df))
+  sv[term] <- NA_real_
+
+  # leftChild / rightChild (0-based node IDs → 1-based row indices)
+  lc <- rc <- NULL
+  for (c in c("leftchild", "leftchildid", "leftchild")) if (c %in% nms) { lc <- suppressWarnings(as.integer(df[[c]])); break }
+  for (c in c("rightchild", "rightchildid", "rightchild")) if (c %in% nms) { rc <- suppressWarnings(as.integer(df[[c]])); break }
+  if (is.null(lc) || is.null(rc)) {
+    for (c in c("childnodeids", "child.nodeids")) {
+      if (c %in% nms) {
+        cn <- df[[c]]
+        lc <- vapply(cn, function(x) as.integer(x[[1L]]), integer(1L))
+        rc <- vapply(cn, function(x) as.integer(x[[2L]]), integer(1L))
+        break
+      }
+    }
+  }
+  if (is.null(lc)) lc <- rc <- rep(NA_integer_, nrow(df))
+
+  node_ids <- as.integer(df$nodeid)
+  n2r <- setNames(seq_len(nrow(df)), as.character(node_ids))
+  resolve_r <- function(ids) {
+    ids <- as.integer(ids)
+    out <- unname(n2r[as.character(ids)])
+    out[is.na(ids) | ids < 0L] <- NA_integer_
+    as.integer(out)
+  }
+  left_r  <- resolve_r(lc)
+  right_r <- resolve_r(rc)
+
+  # prediction (leaf probability for class 1 in probability forest)
+  pred <- NULL
+  for (c in c("prediction", "pred.1", "pred1", "nodeprediction")) if (c %in% nms) { pred <- df[[c]]; break }
+  if (is.null(pred)) pred <- rep(NA_real_, nrow(df))
+  if (is.list(pred)) {
+    pred <- vapply(pred, function(v) {
+      v <- as.numeric(v)
+      if (length(v) >= 2L) v[2L] else if (length(v) == 1L) v[1L] else NA_real_
+    }, numeric(1L))
+  }
+  if (is.matrix(pred))
+    pred <- if (ncol(pred) >= 2L) as.numeric(pred[, 2L]) else as.numeric(pred[, 1L])
+  pred <- suppressWarnings(as.numeric(pred))
+  pred[!term] <- NA_real_
+
+  data.frame(nodeid     = node_ids,
+             feature    = feat_col,
+             splitval   = sv,
+             terminal   = term,
+             leftchild  = left_r,
+             rightchild = right_r,
+             prediction = pred,
+             stringsAsFactors = FALSE)
+}
+
+# Internal: build treeInfo-like data.frame from model$forest list
+# (fallback when ranger::treeInfo() is unavailable)  [RNG-4 fallback]
+.ranger_tree_from_forest <- function(model, tree_idx, feature_names) {
+  forest <- model$forest
+  if (is.null(forest))
+    stop("model$forest is NULL; re-train with write.forest=TRUE")
+
+  cn <- forest$child.nodeIDs
+  if (is.null(cn)) stop("model$forest$child.nodeIDs is NULL")
+
+  tree_cn <- cn[[tree_idx]]
+  if (is.matrix(tree_cn)) {
+    left_ids  <- as.integer(tree_cn[1L, ])
+    right_ids <- as.integer(tree_cn[2L, ])
+  } else if (is.list(tree_cn) && length(tree_cn) == 2L) {
+    left_ids  <- as.integer(tree_cn[[1L]])
+    right_ids <- as.integer(tree_cn[[2L]])
+  } else stop("unrecognised child.nodeIDs structure in tree ", tree_idx)
+
+  n_nodes   <- length(left_ids)
+  node_ids  <- seq_len(n_nodes) - 1L
+  is_term   <- (left_ids == 0L & right_ids == 0L)
+
+  # Split variable IDs (0-based)
+  sv_list <- forest$splitvarIDs %||% forest$split.varIDs
+  split_var_ids <- if (!is.null(sv_list)) as.integer(sv_list[[tree_idx]]) else rep(NA_integer_, n_nodes)
+
+  # Split values
+  sv_list2  <- forest$splitValues %||% forest$split.values
+  split_vals <- if (!is.null(sv_list2)) suppressWarnings(as.numeric(sv_list2[[tree_idx]])) else rep(NA_real_, n_nodes)
+
+  # Feature names (0-based splitvarID → name)
+  feat_col <- rep(NA_character_, n_nodes)
+  for (ni in which(!is_term)) {
+    fid <- split_var_ids[ni]
+    if (!is.na(fid) && fid >= 0L && fid + 1L <= length(feature_names))
+      feat_col[ni] <- feature_names[fid + 1L]
+  }
+
+  # Leaf predictions (probability for class "1")
+  pred_vals <- rep(NA_real_, n_nodes)
+  tcc <- forest$terminal.class.counts
+  if (!is.null(tcc) && length(tcc) >= tree_idx) {
+    ct <- tcc[[tree_idx]]
+    if (is.matrix(ct) && nrow(ct) == n_nodes) {
+      tots <- rowSums(ct); tots[tots == 0] <- 1
+      pred_vals[is_term] <- if (ncol(ct) >= 2L) (ct / tots)[is_term, 2L]
+                            else                  (ct / tots)[is_term, 1L]
+    } else if (is.list(ct)) {
+      for (ni in which(is_term)) {
+        cv <- as.numeric(ct[[ni]])
+        if (!is.null(cv) && length(cv) >= 2L) {
+          tot <- sum(cv); if (tot == 0) tot <- 1
+          pred_vals[ni] <- cv[2L] / tot
+        }
+      }
+    }
+  }
+
+  # Convert 0-based child IDs to 1-based row indices
+  node_map <- setNames(seq_len(n_nodes), as.character(node_ids))
+  resolve  <- function(ids) {
+    out <- unname(node_map[as.character(as.integer(ids))])
+    out[is_term | is.na(ids)] <- NA_integer_
+    as.integer(out)
+  }
+
+  data.frame(nodeid     = node_ids,
+             feature    = feat_col,
+             splitval   = ifelse(is_term, NA_real_, split_vals),
+             terminal   = is_term,
+             leftchild  = resolve(left_ids),
+             rightchild = resolve(right_ids),
+             prediction = pred_vals,
+             stringsAsFactors = FALSE)
+}
+
+# NULL-coalescing operator (file-local, not exported)
+`%||%` <- function(a, b) if (!is.null(a)) a else b

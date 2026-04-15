@@ -56,14 +56,70 @@ install_github("hk1785/treeowen", force = TRUE)
 
 ---------------------------------------------------------------------------------------------------------------------------------------
 
-## 1. Main Functions
+## 1. Model unification wrappers
 
-## :mag: treeowen
+Before computing Owen values you must convert your trained model into a unified format that treeowen can read. Use the wrapper functions below **instead** of calling `treeshap::xgboost.unify()`, `treeshap::lightgbm.unify()`, or `treeshap::ranger.unify()` directly. The wrappers automatically handle all known version-compatibility problems across different releases of each library.
 
-### Description
-Computes exact or Monte Carlo Owen values for every observation in `x` using a trained tree-based ensemble and a feature partition `groups`. The Owen value allocates model attribution in two stages: an outer Shapley game across groups and an inner Shapley game within each group.
+### .xgboost_unify_compat(model, data)
+
+Converts a trained `xgb.Booster` to the unified format.
+
+```r
+unified <- .xgboost_unify_compat(xgb_model, X)
+```
+
+Handled failure modes:
+
+- `xgb.model.dt.tree()` argument was renamed from `model` to `xgb_model` in some builds; both are tried.
+- The `ID` column is absent in older xgboost (before 1.7) and is reconstructed automatically from the `Tree` and `Node` columns.
+- The split-gain column may be named `Quality` instead of `Gain` in newer xgboost; renamed automatically.
+- `Yes`, `No`, and `Missing` columns may be stored as node-ID strings rather than row indices; converted automatically.
+- `model$feature_names` may be NULL for models trained from unnamed matrices; falls back to `colnames(data)`.
+- treeshap::xgboost.unify() is bypassed entirely because it calls internal xgboost functions that have changed between versions.
+
+### .lightgbm_unify_compat(model, data)
+
+Converts a trained `lgb.Booster` to the unified format.
+
+```r
+unified <- .lightgbm_unify_compat(lgb_model, X)
+```
+
+Handled failure modes:
+
+- Tries `treeshap::lightgbm.unify()` first. If that fails, falls back to `lgb.model.dt.tree()`. If that also fails, parses the raw JSON dump from `model$dump_model()`.
+- Column names changed across lightgbm versions: `split_gain` vs `value`, `threshold` vs `split_point`, `count` vs `internal_count` or `leaf_count`; all are normalised automatically.
+- Three different child-node ID encodings depending on lightgbm version: negative-indexed leaf IDs, positive node IDs, and string format `"N<k>"` / `"L<k>"`; all are decoded to row indices.
+- Feature names extracted from the Booster's private field, then `model$feature_name()`, then `colnames(data)` as a last resort.
+- The best-round slot from `lgb.cv()` may be named `best_iter` or `best_iteration`; both are tried.
+- The `verbose` argument may need to be passed inside `params` (older lightgbm) or directly to `lgb.cv()` (newer); use `-1L` in both places to be safe.
+
+### .ranger_unify_compat(model, data)
+
+Converts a trained `ranger` model to the unified format. The model must have been trained with `probability = TRUE`.
+
+```r
+unified <- .ranger_unify_compat(ranger_model, X)
+```
+
+Handled failure modes:
+
+- Tries `treeshap::ranger.unify()` first. If that fails, patches `treeInfo()` output and calls `treeshap:::ranger_unify.common()` directly. If that also fails, builds the unified object from `model$forest` internals.
+- `ranger::treeInfo()` returns `pred.1` in older ranger and `prediction` in newer ranger (0.14+); both are handled.
+- `treeInfo()` column names vary across ranger versions: `nodeID` vs `node`, `splitvarID` vs `splitVarID`, `splitval` vs `splitVal`, `terminal` vs `isTerminal`; all aliases are normalised.
+- `child.nodeIDs` may be a list of length-2 vectors (older ranger) or separate `leftChild` / `rightChild` columns (newer ranger); both formats are handled.
+- Leaf predictions in probability forests may be a scalar, a matrix, or a list of vectors; the probability for class 1 is extracted in all cases.
+- Models trained with `write.forest = FALSE` raise an informative error.
+- Models trained with `probability = FALSE` emit a warning but still attempt unification.
+
+---
+
+## 2. treeowen()
+
+Computes Owen values for every observation.
 
 ### Syntax
+
 ```r
 treeowen(
   unified_model,
@@ -84,474 +140,242 @@ treeowen(
   efficiency_tol    = 1e-6,
   dp_progress       = TRUE,
   dp_print_every    = 1L,
-  dp_newline_every  = 10L,
-  eta_alpha         = 0.2,
   n_cores           = 1L,
   use_cpp           = TRUE,
   verbose           = TRUE
 )
 ```
 
-### Arguments
-* _unified_model_ - A unified model object produced by `treeshap::xgboost.unify()`, `treeshap::lightgbm.unify()`, or `treeshap::ranger.unify()`.
-* _x_ - A numeric data frame or matrix of observations (_n_ rows × _p_ columns). Must contain the same features as `unified_model`.
-* _groups_ - A named list of character vectors. Each element names the features belonging to that group. Together they must form a complete, non-overlapping partition of all features in `unified_model`.
-* _method_ - Algorithm selection: `"auto"` (default; exact for groups with |G_k| < `auto_exact_max_m`, Monte Carlo otherwise), `"exact"` (force exact for all groups; requires |G_k| ≤ 60), or `"approx"` (force Monte Carlo for all groups).
-* _hierarchy_ - Controls the auxiliary binary tree over groups used to organise the outer Shapley summation. `NULL` (default) builds a balanced binary tree safe for any _K_. A nested list, numeric vector, or integer matrix are also accepted. The choice does not affect correctness, only runtime.
-* _n_inner_mc_ - Integer. Initial Monte Carlo permutation pairs per context when `method = "approx"` or `"auto"`. Default `64L`.
-* _inner_antithetic_ - Logical. Antithetic sampling to reduce Monte Carlo variance. Default `TRUE`.
-* _target_se_inner_ - Numeric. Target standard error for adaptive Monte Carlo stopping. Default `1e-3`.
-* _min_inner_mc_ - Integer. Minimum Monte Carlo pairs per context. Default `32L`.
-* _max_inner_mc_ - Integer. Maximum Monte Carlo pairs per context. Default `512L`.
-* _chunk_size_inner_ - Integer. Batch size for inner forest evaluation. Default `131072L`.
-* _max_bytes_ - Numeric. Memory limit (bytes) for batched evaluation. Default `512 * 1024^2` (512 MB).
-* _inner_bitmask_max_ - Integer. Maximum |G_k| for bitmask-based exact enumeration. Default `TREEOWEN_INNER_BITMASK_DEFAULT` (60).
-* _auto_exact_max_m_ - Integer. Groups with |G_k| ≥ `auto_exact_max_m` use Monte Carlo when `method = "auto"`. Default `TREEOWEN_AUTO_EXACT_MAX_M` (30).
-* _check_efficiency_ - Logical. Verify the efficiency axiom Σψ_i = f(x) − E[f(X)] after computation. Default `FALSE`.
-* _efficiency_tol_ - Numeric. Tolerance for the efficiency check. Default `1e-6`.
-* _dp_progress_ - Logical. Show a progress bar. Default `TRUE`.
-* _dp_print_every_ - Integer. Progress bar update frequency (rows). Default `1L`.
-* _dp_newline_every_ - Integer. Deprecated; kept for backwards compatibility. Default `10L`.
-* _eta_alpha_ - Numeric. Exponential moving average smoothing factor for ETA estimation. Default `0.2`.
-* _n_cores_ - Integer. Parallel cores. Default `1L`. Values > 1 use `parallel::mclapply()` on Linux/macOS. Windows requires `n_cores = 1L`.
-* _use_cpp_ - Logical. Use compiled C++ routines (strongly recommended). Default `TRUE`.
-* _verbose_ - Logical. Print diagnostic messages. Default `TRUE`.
+### Key arguments
 
-### Values
-An object of class `"treeowen_result"` (a named list) with the following components:
-* _owens_ - A data frame (_n_ × _p_) of Owen values. Column names match the features in `x`.
-* _observations_ - A data frame (_n_ × _p_) of the input observations.
-* _groups_ - The `groups` argument as supplied.
-* _baseline_ - Numeric vector of length _n_: the empty-set forest value v_x(∅) = E[f(X)] per observation.
-* _v_all_ - Numeric vector of length _n_: the full-set value v_x(N) = f(x) per observation.
-* _stats_ - Named list of diagnostics: _n_, _p_, _K_, tree counts, effective method, group methods, C++ usage, and parallelism settings.
-* _note_ - Character string summarising the run configuration.
+`unified_model` — Output of a `*_unify_compat()` wrapper.
+
+`x` — Data frame or matrix of observations. Must contain the same features as the model.
+
+`groups` — Named list of character vectors. Each element names the features belonging to that group. Every feature in `x` must appear in exactly one group (a full partition is required).
+
+`method` — How to compute Owen values. `"auto"` uses the exact algorithm for groups with fewer features than `auto_exact_max_m` and Monte Carlo for larger groups. `"exact"` always uses exact. `"approx"` always uses Monte Carlo.
+
+`hierarchy` — Structure of the auxiliary binary tree over groups. `NULL` (default) builds a balanced binary tree. Accepts a nested list or a matrix for custom structures. Does not affect the correctness of results, only computation speed.
+
+`n_inner_mc`, `min_inner_mc`, `max_inner_mc`, `target_se_inner` — Control the number of Monte Carlo samples when using the approximate method.
+
+`n_cores` — Number of CPU cores. Values greater than 1 use `parallel::mclapply()` on Linux and macOS. On Windows, keep this at 1.
+
+`use_cpp` — Must be `TRUE`. The C++ backend is required.
+
+### Return value
+
+A `treeowen_result` list with:
+
+- `owens` — Data frame of Owen values (rows = observations, columns = features).
+- `baseline` — Average model prediction across all training observations.
+- `v_all` — Model prediction for each observation.
+- `groups` — The group partition used.
+- `observations` — The input data `x`.
+- `stats` — Diagnostics: number of trees, method used, group sizes, timing.
+- `note` — Summary string.
+
+For every observation, the sum of its Owen values equals its prediction minus the baseline.
 
 ### Example
-Import requisite R packages
+
 ```r
 library(treeowen)
-library(xgboost)
-library(treeshap)
-```
-Generate synthetic data (5 groups × 5 features, _n_ = 50)
-```r
-set.seed(42)
-feat_names <- paste0("F", rep(1:5, times = 5), "G", rep(1:5, each = 5))
-X <- as.data.frame(matrix(rnorm(50 * 25), 50, 25,
-                          dimnames = list(NULL, feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
-Y      <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:5, function(k) paste0("F", 1:5, "G", k)),
-                   paste0("G", 1:5))
-```
-Fit XGBoost and unify
-```r
-xgb_mod <- xgboost(data      = xgb.DMatrix(as.matrix(X), label = Y),
-                   nrounds   = 50L, max_depth = 3L, eta = 0.1,
-                   objective = "binary:logistic", verbose = 0L)
-unified <- xgboost.unify(xgb_mod, X)
-```
-Compute Owen values
-```r
-result <- treeowen(unified, X, groups, method = "auto",
-                   dp_progress = FALSE, verbose = TRUE)
+
+# Train XGBoost
+dm    <- xgb.DMatrix(as.matrix(X), label = Y)
+model <- xgboost(dm, nrounds = 100, objective = "binary:logistic", verbose = 0)
+
+# Unify and compute Owen values
+unified <- .xgboost_unify_compat(model, X)
+groups  <- list(GroupA = c("f1","f2","f3"), GroupB = c("f4","f5"))
+result  <- treeowen(unified, X, groups, method = "auto")
 print(result)
-dim(result$owens)         # 50 x 25
-head(result$owens[, 1:5]) # first 5 Owen values per observation
-```
-Verify efficiency axiom (should be < 1e-6 for exact)
-```r
-eff_err <- abs(rowSums(result$owens) - (result$v_all - result$baseline))
-cat(sprintf("Max efficiency error: %.2e\n", max(eff_err)))
-```
-More Details
-```r
-?treeowen
 ```
 
-## :mag: treeowen_importance
+---
 
-### Description
-Derives feature-level and group-level importance scores from a `treeowen` result. Feature importance is the mean absolute Owen value across observations; group importance is the mean absolute sum of within-group Owen values (group-level attribution).
+## 3. treeowen_importance()
+
+Derives importance scores from a `treeowen_result` object. Importance is the mean absolute Owen value across observations.
 
 ### Syntax
+
 ```r
 treeowen_importance(
   result,
   type      = c("both", "feature", "group"),
-  group_agg = c("sum_abs", "sum_abs_feat", "both"),
+  group_agg = c("sum_abs", "mean_abs", "sum", "mean"),
   sort      = TRUE,
   normalize = FALSE
 )
 ```
 
-### Arguments
-* _result_ - An object of class `"treeowen_result"` from `treeowen`.
-* _type_ - Character. Which scores to compute: `"both"` (default; both feature and group importance), `"feature"` (feature importance only), or `"group"` (group importance only).
-* _group_agg_ - Character. How to compute group importance: `"sum_abs"` (default; I_k = (1/n) Σ_j |Ψ_k^(j)|, where Ψ_k^(j) = Σ_{i∈G_k} ψ_i^(j)), `"sum_abs_feat"` (I_k = (1/|G_k|) Σ_{i∈G_k} I_i, average of within-group feature importances), or `"both"` (compute both; `importance` column uses `"sum_abs"` for sorting; an extra column `importance_sum_abs_feat` is appended).
-* _sort_ - Logical. Sort by decreasing importance. Default `TRUE`.
-* _normalize_ - Logical. Normalize scores to sum to 1. Default `FALSE`.
+### Return value
 
-### Values
-An object of class `"treeowen_importance"` (a named list) with the following components:
-* _feature_ - Data frame with columns `feature` and `importance`, sorted by decreasing importance. Present when `type %in% c("both", "feature")`.
-* _group_ - Data frame with columns `group` and `importance` (plus `importance_sum_abs_feat` when `group_agg = "both"`), sorted by decreasing importance. Present when `type %in% c("both", "group")`.
-* _group_attr_ - Numeric matrix (_n_ × _K_) of group-level Owen attributions Ψ_k^(j). Always present; used internally by plotting functions.
-* _group_pos_ - Named list: group name → column indices in `result$owens`.
-* _group_names_ - Character vector of group names.
-* _feat_names_ - Character vector of feature names.
-* _n_, _K_, _p_ - Integer scalars: number of observations, groups, and features.
-* _type_, _group_agg_ - The arguments as supplied.
+A list with `feature` (data frame with columns `feature` and `importance`), `group` (data frame with columns `group` and `importance`), and `group_attr` (matrix of group-level Owen values used by visualization functions).
 
 ### Example
-Import requisite R packages
+
 ```r
-library(treeowen)
-library(xgboost)
-library(treeshap)
-```
-(Generate synthetic data and fit XGBoost as shown in `?treeowen`)
-```r
-set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=5), "G", rep(1:5, each=5))
-X <- as.data.frame(matrix(rnorm(50*25), 50, 25, dimnames=list(NULL,feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
-Y      <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:5, function(k) paste0("F",1:5,"G",k)), paste0("G",1:5))
-xgb_mod <- xgboost(data    = xgb.DMatrix(as.matrix(X), label=Y),
-                   nrounds = 50L, max_depth = 3L, eta = 0.1,
-                   objective = "binary:logistic", verbose = 0L)
-result  <- treeowen(xgboost.unify(xgb_mod, X), X, groups,
-                    method = "auto", dp_progress = FALSE, verbose = FALSE)
-```
-Compute feature and group importance
-```r
-imp <- treeowen_importance(result, type = "both", group_agg = "sum_abs")
-print(imp)
-head(imp$feature, 5L)  # top 5 features
-imp$group              # group importance
-```
-Normalised importance (sums to 1)
-```r
-imp_norm <- treeowen_importance(result, type = "group", normalize = TRUE)
-imp_norm$group
-```
-More Details
-```r
-?treeowen_importance
+imp <- treeowen_importance(result, type = "both", sort = TRUE)
+print(imp$group)
 ```
 
----------------------------------------------------------------------------------------------------------------------------------------
+---
 
-## 2. Visualization Tools
+## 4. treeowen_beeswarm()
 
-## :mag: treeowen_beeswarm
-
-### Description
-Produces SHAP-style beeswarm plots of Owen value distributions at the feature level, the group level, or both panels side by side. Points are coloured by the feature's raw value (feature panel) or by a group-level summary statistic (group panel).
+Produces a beeswarm plot of Owen values. Each point is one observation. Point colour encodes the feature value (or a statistic over the group's features), so you can see at a glance which feature values are associated with positive or negative attribution.
 
 ### Syntax
+
 ```r
 treeowen_beeswarm(
   result,
-  level             = c("feature", "group", "both"),
-  group_agg         = c("sum_abs", "sum_abs_feat"),
-  normalize_imp     = FALSE,
-  top_n_feature     = 10L,
-  top_n_group       = 10L,
-  group_color_stat  = c("sum", "mean", "custom"),
-  group_color_fn    = NULL,
-  color_low         = "#0052A5",
-  color_high        = "#DC2626",
-  color_alpha       = 0.6,
-  qlims             = c(0.05, 0.95),
-  point_size        = 1.6,
-  point_alpha       = 0.55,
-  quasirandom_width = 0.4,
-  title_feature     = NULL,
-  title_group       = NULL,
-  xlab_feature      = "Owen Value",
-  xlab_group        = "Group Owen Value",
-  legend_label_feat = "Value",
-  legend_label_grp  = NULL,
-  plot_title_size   = 16,
-  axis_title_x_size = 11,
-  axis_text_x_size  = 10,
-  axis_text_y_size  = 12,
-  legend_text_size  = 9,
-  legend_title_size = 9,
-  margin_t          = 6,
-  margin_r          = 6,
-  margin_b          = 6,
-  margin_l          = 8,
-  legend_position   = "bottom",
-  legend_direction  = "horizontal",
-  legend_barwidth   = grid::unit(170, "pt"),
-  legend_barheight  = grid::unit(10,  "pt"),
-  verbose           = FALSE
+  level            = c("feature", "group", "both"),
+  top_n_feature    = 20L,
+  top_n_group      = NULL,
+  group_color_stat = c("sum", "mean"),
+  color_low        = "#0052A5",
+  color_high       = "#DC2626",
+  color_alpha      = 0.65,
+  point_size       = 1.5,
+  point_alpha      = 0.5,
+  qlims            = c(0.05, 0.95),
+  ...
 )
 ```
 
-### Arguments
-* _result_ - An object of class `"treeowen_result"` from `treeowen`.
-* _level_ - Character. Panel(s) to produce: `"feature"` (default; one beeswarm row per feature), `"group"` (one row per group), or `"both"` (group | feature side-by-side via `patchwork`; requires `patchwork`).
-* _group_agg_ - Character. Aggregation for sort order: `"sum_abs"` (default; mean absolute group attribution) or `"sum_abs_feat"` (mean of within-group feature importances). `"both"` is not permitted (ambiguous sort order).
-* _normalize_imp_ - Logical. Normalise importance before sorting. Default `FALSE`.
-* _top_n_feature_ - Integer or `NULL`. Number of top features to show. Default `10L`.
-* _top_n_group_ - Integer or `NULL`. Number of top groups to show. Default `10L`.
-* _group_color_stat_ - Character. Colour statistic for group panel: `"sum"` (default; sum of raw feature values), `"mean"`, or `"custom"`.
-* _group_color_fn_ - Function or `NULL`. Required when `group_color_stat = "custom"`: `function(x_mat, feat_idx) -> numeric(n)`.
-* _color_low_ - Hex colour for the low end of the gradient. Default `"#0052A5"` (blue).
-* _color_high_ - Hex colour for the high end. Default `"#DC2626"` (red).
-* _color_alpha_ - Numeric in [0,1]. Gradient transparency. Default `0.6`.
-* _qlims_ - Numeric vector of length 2. Quantile limits for colour clipping. Default `c(0.05, 0.95)`.
-* _point_size_ - Numeric. Point size. Default `1.6`.
-* _point_alpha_ - Numeric in [0,1]. Point transparency. Default `0.55`.
-* _quasirandom_width_ - Numeric. Quasirandom jitter spread. Default `0.4`.
-* _title_feature_ - Character or `NULL`. Feature panel title.
-* _title_group_ - Character or `NULL`. Group panel title.
-* _xlab_feature_ - Character. x-axis label for the feature panel. Default `"Owen Value"`.
-* _xlab_group_ - Character. x-axis label for the group panel. Default `"Group Owen Value"`.
-* _legend_label_feat_ - Character. Colour-bar label for the feature panel. Default `"Value"`.
-* _legend_label_grp_ - Character or `NULL`. Colour-bar label for the group panel. `NULL` auto-generates from `group_color_stat`.
-* _plot_title_size_ - Numeric (pt). Default `16`.
-* _axis_title_x_size_ - Numeric (pt). Default `11`.
-* _axis_text_x_size_ - Numeric (pt). Default `10`.
-* _axis_text_y_size_ - Numeric (pt). Default `12`.
-* _legend_text_size_ - Numeric (pt). Default `9`.
-* _legend_title_size_ - Numeric (pt). Default `9`.
-* _margin_t_, _margin_r_, _margin_b_, _margin_l_ - Numeric (pt). Plot margins. Defaults: `6`, `6`, `6`, `8`.
-* _legend_position_ - Character. Default `"bottom"`.
-* _legend_direction_ - Character. Default `"horizontal"`.
-* _legend_barwidth_ - `grid::unit`. Default `grid::unit(170, "pt")`.
-* _legend_barheight_ - `grid::unit`. Default `grid::unit(10, "pt")`.
-* _verbose_ - Logical. Print diagnostic messages. Default `FALSE`.
-
-### Values
-* When `level = "feature"` or `"group"`: a `ggplot` object.
-* When `level = "both"`: an object of class `"treeowen_plots"` (a named list) with components: _combined_ (patchwork: group | feature side-by-side), _feature_ (standalone feature ggplot), _group_ (standalone group ggplot), _feat_ordered_ (features in display order), _grp_ordered_ (groups in display order).
+Returns a `ggplot` object when `level = "feature"` or `"group"`, or a `treeowen_plots` list (with a `combined` patchwork figure) when `level = "both"`.
 
 ### Example
-Import requisite R packages
+
 ```r
-library(treeowen)
-library(xgboost)
-library(treeshap)
-library(ggplot2)
-library(ggbeeswarm)
-library(patchwork)
-```
-(Generate synthetic data, fit XGBoost, and compute Owen values as shown in `?treeowen`)
-```r
-set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=5), "G", rep(1:5, each=5))
-X <- as.data.frame(matrix(rnorm(50*25), 50, 25, dimnames=list(NULL,feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
-Y      <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:5, function(k) paste0("F",1:5,"G",k)), paste0("G",1:5))
-xgb_mod <- xgboost(data    = xgb.DMatrix(as.matrix(X), label=Y),
-                   nrounds = 50L, max_depth = 3L, eta = 0.1,
-                   objective = "binary:logistic", verbose = 0L)
-result  <- treeowen(xgboost.unify(xgb_mod, X), X, groups,
-                    method = "auto", dp_progress = FALSE, verbose = FALSE)
-```
-Draw a feature-level beeswarm plot
-```r
-p_feat <- treeowen_beeswarm(result, level = "feature", top_n_feature = 15L,
-                             xlab_feature = "Owen Value (XGBoost)")
-p_feat
-```
-Draw a group-level beeswarm plot
-```r
-p_grp <- treeowen_beeswarm(result, level = "group", top_n_group = 5L,
-                            group_color_stat = "sum")
-p_grp
-```
-Draw both panels side-by-side
-```r
-out <- treeowen_beeswarm(result, level = "both",
-                          top_n_feature = 10L, top_n_group = 5L)
-out$combined
-```
-More Details
-```r
-?treeowen_beeswarm
+p   <- treeowen_beeswarm(result, level = "feature", top_n_feature = 15L)
+out <- treeowen_beeswarm(result, level = "both", top_n_feature = 10L, top_n_group = 5L)
+print(out$combined)
 ```
 
-## :mag: treeowen_hierarchical_beeswarm
+---
 
-### Description
-Produces a hierarchical beeswarm plot in which each group and its nested features are displayed as individual rows, assembled into a multi-column layout using `patchwork`. Groups are ordered by decreasing group importance; features within each group by decreasing feature importance. An optional standalone colour-bar strip is appended at the bottom of each page.
+## 5. treeowen_hierarchical_beeswarm()
+
+Produces a hierarchical beeswarm layout in which each group header row is followed by beeswarm rows for the individual features in that group. The figure is assembled as a multi-column patchwork and can be saved to PDF and PNG.
 
 ### Syntax
+
 ```r
 treeowen_hierarchical_beeswarm(
   ow_result,
   imp,
-  top_n_group      = NULL,
-  top_n_feat       = NULL,
-  n_col            = 2L,
-  group_color_stat = "sum",
-  color_low        = "#0052A5",
-  color_high       = "#DC2626",
-  color_alpha      = 0.65,
-  qlims            = c(0.05, 0.95),
-  point_size_grp   = 2.2,
-  point_size_feat  = 1.2,
-  point_alpha      = 0.50,
-  row_h_grp        = 0.55,
-  row_h_feat       = 0.22,
-  width_in         = 14,
-  max_h_per_page   = 25,
-  feat_axis_size   = 7,
-  grp_axis_size    = 8.5,
-  xlab             = "Owen Value",
-  show_colorbar    = TRUE,
-  colorbar_h       = 0.35,
-  lname            = "treeowen",
-  save_path        = NULL,
-  dpi              = 300L,
-  verbose          = FALSE
+  top_n_group    = NULL,
+  top_n_feat     = NULL,
+  n_col          = 2L,
+  show_colorbar  = TRUE,
+  width_in       = 10,
+  max_h_per_page = 20,
+  lname          = "model",
+  save_path      = NULL,
+  dpi            = 300L,
+  ...
 )
 ```
 
-### Arguments
-* _ow_result_ - An object of class `"treeowen_result"` from `treeowen`.
-* _imp_ - An object of class `"treeowen_importance"` from `treeowen_importance` computed with `type = "both"` (must contain both `$feature` and `$group`).
-* _top_n_group_ - Integer or `NULL`. Number of top groups by group importance to display. `NULL` (default) shows all groups.
-* _top_n_feat_ - Integer or `NULL`. Restrict features to those among the top `top_n_feat` by feature importance that also belong to the selected groups. `NULL` (default) shows all features in the selected groups.
-* _n_col_ - Integer. Number of layout columns. Default `2L`.
-* _group_color_stat_ - Character. Colour statistic for group rows: `"sum"` (default; sum of raw feature values in the group) or `"mean"`.
-* _color_low_ - Hex colour for the low gradient end. Default `"#0052A5"` (blue).
-* _color_high_ - Hex colour for the high gradient end. Default `"#DC2626"` (red).
-* _color_alpha_ - Numeric in [0,1]. Gradient transparency. Default `0.65`.
-* _qlims_ - Numeric vector of length 2. Quantile limits for colour clipping. Default `c(0.05, 0.95)`.
-* _point_size_grp_ - Numeric. Group row point size. Default `2.2`.
-* _point_size_feat_ - Numeric. Feature row point size. Default `1.2`.
-* _point_alpha_ - Numeric in [0,1]. Point transparency. Default `0.50`.
-* _row_h_grp_ - Numeric. Group row height (inches). Default `0.55`.
-* _row_h_feat_ - Numeric. Feature row height (inches). Default `0.22`.
-* _width_in_ - Numeric. Total plot width (inches). Default `14`.
-* _max_h_per_page_ - Numeric. Maximum plot height (inches) per page. When exceeded, output is split across multiple pages. Default `25`.
-* _feat_axis_size_ - Numeric (pt). Feature row y-axis text size. Default `7`.
-* _grp_axis_size_ - Numeric (pt). Group row y-axis text size. Default `8.5`.
-* _xlab_ - Character. x-axis label. Default `"Owen Value"`.
-* _show_colorbar_ - Logical. Append a standalone horizontal colour-bar strip at the bottom of each page. Default `TRUE`.
-* _colorbar_h_ - Numeric. Colour-bar height (inches). Default `0.35`.
-* _lname_ - Character. File-name prefix (used only when `save_path` is not `NULL`). Default `"treeowen"`.
-* _save_path_ - Character or `NULL`. Directory path for PDF and PNG output. `NULL` (default) returns the list visibly without saving.
-* _dpi_ - Integer. PNG resolution. Default `300L`.
-* _verbose_ - Logical. Print diagnostic messages. Default `FALSE`.
-
-### Values
-A list of `patchwork` objects, one element per page. Each element is the assembled plot for that page (beeswarm columns + optional colour-bar strip). Returned visibly when `save_path = NULL`; invisibly when `save_path` is set (files written as `fig_<lname>_beeswarm_hierarchical[_<i>].pdf` and `.png`).
+`imp` must be from `treeowen_importance(type = "both")`. Returns a list of `patchwork` objects (one per page). When `save_path` is given, PDF and PNG files are written there.
 
 ### Example
-Import requisite R packages
+
 ```r
-library(treeowen)
-library(xgboost)
-library(treeshap)
-library(ggplot2)
-library(ggbeeswarm)
-library(patchwork)
+imp   <- treeowen_importance(result, type = "both")
+pages <- treeowen_hierarchical_beeswarm(result, imp, top_n_group = 10L, n_col = 2L,
+                                         save_path = "output/", lname = "xgboost")
+print(pages[[1]])
 ```
-(Generate synthetic data, fit XGBoost, and compute Owen values as shown in `?treeowen`)
+
+---
+
+## 6. Reference enumerators
+
+These compute Owen values by exhaustive enumeration and are intended only for correctness verification on tiny problems (no more than a handful of features and groups).
+
+`treeowen_exact_enum()` — Model-agnostic enumerator using direct subset evaluation.
+
+`treeowen_exact_tuvalues()` — Tree-aware enumerator that exploits the additive structure of ensembles.
+
+Both return `treeowen_result` objects.
+
+---
+
+## 7. Custom hierarchy trees
+
+The auxiliary binary tree over groups controls how the outer attribution is structured internally. The default balanced binary tree works well in most cases.
+
+`build_hierarchy_tree_binary(hier)` — Build from a fully specified nested list where each leaf is a single integer group index and each internal node is a list with exactly two children.
+
+`build_hierarchy_tree_from_layers(K, hierarchy)` — Build from a layer-merge specification (matrix or NULL for balanced default). This is the function called internally by `treeowen()`.
+
+Changing the hierarchy does not affect the values of Owen values, only computation speed.
+
 ```r
-set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=5), "G", rep(1:5, each=5))
-X <- as.data.frame(matrix(rnorm(50*25), 50, 25, dimnames=list(NULL,feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
-Y      <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:5, function(k) paste0("F",1:5,"G",k)), paste0("G",1:5))
-xgb_mod <- xgboost(data    = xgb.DMatrix(as.matrix(X), label=Y),
-                   nrounds = 50L, max_depth = 3L, eta = 0.1,
-                   objective = "binary:logistic", verbose = 0L)
-result  <- treeowen(xgboost.unify(xgb_mod, X), X, groups,
-                    method = "auto", dp_progress = FALSE, verbose = FALSE)
-```
-Compute importance (type = "both" is required)
-```r
-imp <- treeowen_importance(result, type = "both")
-```
-Draw a hierarchical beeswarm plot (return patchwork list)
-```r
-pages <- treeowen_hierarchical_beeswarm(
-  ow_result        = result,
-  imp              = imp,
-  top_n_group      = 5L,
-  top_n_feat       = NULL,
-  n_col            = 2L,
-  group_color_stat = "sum",
-  show_colorbar    = TRUE,
-  width_in         = 10,
-  max_h_per_page   = 15,
-  verbose          = TRUE
+# Custom tree: ((G1, G2), (G3, (G4, G5)))
+tree <- build_hierarchy_tree_binary(
+  list(left  = list(left = 1L, right = 2L),
+       right = list(left = 3L, right = list(left = 4L, right = 5L)))
 )
-cat("Pages:", length(pages), "\n")
-pages[[1]]
-```
-Save to disk (PDF + PNG)
-```r
-treeowen_hierarchical_beeswarm(
-  ow_result  = result,
-  imp        = imp,
-  top_n_group = 5L,
-  n_col      = 2L,
-  width_in   = 10,
-  lname      = "xgb_synthetic",
-  save_path  = tempdir(),
-  dpi        = 150L,
-  verbose    = TRUE
-)
-```
-More Details
-```r
-?treeowen_hierarchical_beeswarm
+result_custom <- treeowen(unified, X, groups, hierarchy = tree)
 ```
 
----------------------------------------------------------------------------------------------------------------------------------------
+---
 
-## 3. Example Dataset
+## 8. Example dataset: immuno
 
-## :mag: immuno
+Gut microbiome relative abundances from 219 cancer immunotherapy patients across five cohorts. Features are microbial species. The outcome is treatment response (1 = responder, 0 = non-responder).
 
-### Description
-Relative abundance data of gut microbial taxa from 219 cancer patients treated with immune checkpoint inhibitor (ICI) therapy, pooled from five independent cohorts. The dataset includes a pre-built group partition `groups` that maps each of the 18 genera to its member species, ready for direct use with `treeowen`.
-
-### Usage
 ```r
 data(immuno)
+# immuno$X      — 219 x 953 matrix of relative abundances
+# immuno$Y      — numeric vector of length 219
+# immuno$groups — named list mapping genus names to species feature names
 ```
 
-### Format
-Loading `data(immuno)` places two objects in the workspace:
-* _X_ - A numeric data frame with 219 rows (patients) and 190 columns (microbial features: species).
-* _Y_ - A numeric vector for class labels: 0 for non-responder (NR) and 1 for responder (R).
-* _groups_ - A named list with 18 elements. Each element is a character vector of species column names belonging to that genus (e.g., `"Akkermansia"`, `"Bacteroides"`). Together, `groups` forms a complete, non-overlapping partition of all 190 columns of `immuno`, suitable for direct use as the `groups` argument of `treeowen`.
+---
 
-### References
-* Koh H. _Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values._ (_In Review_)
+## 9. Version compatibility notes
 
-### Example
-```r
-library(treeowen)
+### XGBoost
 
-data(immuno)
+| Issue | Affected versions | How it is handled |
+|---|---|---|
+| `ID` column absent from `xgb.model.dt.tree()` | xgboost before 1.7 | Reconstructed from `Tree` and `Node` columns |
+| Split-gain column named `Quality` not `Gain` | xgboost 1.7+ | Renamed automatically |
+| `xgb.model.dt.tree()` argument renamed to `xgb_model` | xgboost 2.x | Both argument names tried |
+| `treeshap::xgboost.unify()` breaks on new class structure | xgboost 2.x | treeshap bypassed entirely; model parsed directly |
 
-# Dimensions
-dim(immuno$X) # 219 x 190
-length(immuno$groups) # 18 genera
-names(immuno$groups)[1:5] # first five genus names
+### LightGBM
 
-# Response labels 
-table(immuno$Y) # 65 responders (R) and 154 non-responders (NR).
+| Issue | Affected versions | How it is handled |
+|---|---|---|
+| `lgb.model.dt.tree()` unavailable | lightgbm before 3.2 | `dump_model()` JSON fallback |
+| Column names changed | lightgbm 3.x vs 4.x | All known aliases resolved automatically |
+| Booster class restructuring breaks treeshap | lightgbm 4.0+ | Three-level fallback: treeshap → lgb.model.dt.tree → dump_model |
+| `best_iter` slot renamed to `best_iteration` | lightgbm 4.x | Both slot names tried |
+| `verbose` argument location changed in `lgb.cv()` | lightgbm 4.x | Pass `-1L` both inside `params` and as a direct argument |
 
-# Group sizes (species per genus)
-sort(lengths(immuno$groups), decreasing = TRUE)
-```
-More Details
-```r
-?immuno
-```
+### Ranger
+
+| Issue | Affected versions | How it is handled |
+|---|---|---|
+| `treeInfo()` returns `pred.1` instead of `prediction` | ranger before 0.14 | Renamed automatically |
+| `treeInfo()` column name variations | ranger 0.11–0.16+ | All known aliases normalised |
+| `ranger_unify.common()` signature changed | treeshap 0.3 vs 0.4 | Multiple calling conventions tried |
+| `child.nodeIDs` structure changed | ranger 0.11 vs 0.14+ | Both list and column formats parsed |
+| Non-probability forest | any | Warning emitted; unification still attempted |
+| `model$forest` is NULL | when trained with `write.forest = FALSE` | Informative error with clear message |
+
+### General advice
+
+- Always train ranger models with `probability = TRUE` and `keep.inbag = TRUE`.
+- You do not need a specific version of treeshap. The wrappers fall back to direct tree parsing whenever treeshap calls fail.
+- On Windows, set `n_cores = 1L` in `treeowen()`. Parallel execution via `foreach` / `doParallel` is possible but requires XPtr serialization which is not supported on Windows.

@@ -10,7 +10,7 @@ top-10 feature importances and all group importances.
 }
 \arguments{
 \item{x}{An object of class \code{"treeowen_importance"}.}
-\item{digits}{Integer.  Significant digits.  Default \code{4}.}
+\item{digits}{Integer. Significant digits. Default \code{4}.}
 \item{...}{Additional arguments passed to \code{print.data.frame}.}
 }
 \value{Returns \code{x} invisibly.}

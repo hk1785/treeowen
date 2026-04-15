@@ -9,8 +9,12 @@
 #' partition \code{groups}.
 #'
 #' @param unified_model A unified model object produced by
-#'   \code{treeshap::xgboost.unify()}, \code{treeshap::lightgbm.unify()}, or
-#'   \code{treeshap::ranger.unify()}.
+#'   \code{.xgboost_unify_compat()}, \code{.lightgbm_unify_compat()}, or
+#'   \code{.ranger_unify_compat()}.  These wrappers are robust replacements
+#'   for \code{treeshap::xgboost.unify()}, \code{treeshap::lightgbm.unify()},
+#'   and \code{treeshap::ranger.unify()} respectively, handling version
+#'   incompatibilities across xgboost >= 1.6, lightgbm >= 3.x / 4.x, and
+#'   ranger >= 0.11 / 0.14+.
 #' @param x A data frame or matrix of observations (rows = observations,
 #'   columns = features). Must contain the same features as \code{unified_model}.
 #' @param groups A named list of character vectors. Each element gives the
@@ -89,7 +93,9 @@
 #'
 #' @examples
 #' \dontrun{
-#' unified <- treeshap::xgboost.unify(model, X)
+#' unified <- .xgboost_unify_compat(model, X)
+#' # or: unified <- .lightgbm_unify_compat(lgb_model, X)
+#' # or: unified <- .ranger_unify_compat(ranger_model, X)
 #' groups  <- list(G1 = c("f1", "f2"), G2 = c("f3", "f4"))
 #' result  <- treeowen(unified, X, groups)
 #' print(result)

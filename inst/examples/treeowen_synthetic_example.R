@@ -88,7 +88,7 @@ cat("Group partition verified: complete and non-overlapping.\n")
 # §2. Fit models + unify via treeshap
 # =============================================================================
 # Notes on treeshap requirements:
-#   XGBoost:  xgboost.unify(model, X)  — X = feature data frame (no Y)
+#   XGBoost:  .xgboost_unify_compat(model, X)  — X = feature data frame (no Y)
 #   LightGBM: lightgbm.unify(model, X) — X = feature data frame (no Y)
 #   Ranger:   ranger.unify(model, X)   — X = feature data frame (no Y);
 #             model must be trained with probability=TRUE and keep.inbag=TRUE
@@ -104,7 +104,7 @@ xgb_model <- xgboost::xgboost(
   eval_metric = "logloss",
   verbose     = 0L
 )
-unified_xgb <- treeshap::xgboost.unify(xgb_model, X)
+unified_xgb <- .xgboost_unify_compat(xgb_model, X)
 cat("XGBoost: trained and unified.\n")
 
 # ── §2b. LightGBM ────────────────────────────────────────────────────────────
@@ -121,7 +121,9 @@ lgb_model <- lightgbm::lgb.train(
   data    = lgb_ds,
   nrounds = 50L
 )
-unified_lgb <- treeshap::lightgbm.unify(lgb_model, X)
+# Use .lightgbm_unify_compat() instead of treeshap::lightgbm.unify() for
+# robustness across lightgbm >= 3.x / 4.x and treeshap 0.3–0.4+.
+unified_lgb <- .lightgbm_unify_compat(lgb_model, X)
 cat("LightGBM: trained and unified.\n")
 
 # ── §2c. Ranger ──────────────────────────────────────────────────────────────
@@ -132,11 +134,13 @@ ranger_model <- ranger::ranger(
   data         = ranger_df,
   num.trees    = 50L,
   max.depth    = 3L,
-  probability  = TRUE,   # required by treeshap::ranger.unify
-  keep.inbag   = TRUE,   # required by treeshap::ranger.unify
+  probability  = TRUE,   # required for numeric leaf predictions
+  keep.inbag   = TRUE,   # required for .ranger_unify_compat()
   write.forest = TRUE    # default; stated explicitly for clarity
 )
-unified_rng <- treeshap::ranger.unify(ranger_model, X)  # X only — no .Y column
+# Use .ranger_unify_compat() instead of treeshap::ranger.unify() for
+# robustness across ranger >= 0.11 / 0.14+ and treeshap 0.3–0.4+.
+unified_rng <- .ranger_unify_compat(ranger_model, X)  # X only — no .Y column
 cat("Ranger: trained and unified.\n")
 
 # =============================================================================

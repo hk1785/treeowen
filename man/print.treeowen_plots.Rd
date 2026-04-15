@@ -3,7 +3,7 @@
 \title{Print Method for treeowen_plots Objects}
 \description{
 Renders a \code{"treeowen_plots"} object produced by
-\code{\link{treeowen_beeswarm}} with \code{level = "both"}.  Prints the
+\code{\link{treeowen_beeswarm}} with \code{level = "both"}. Prints the
 combined patchwork plot when available; otherwise prints individual panels.
 }
 \usage{
@@ -22,7 +22,7 @@ via Owen Values. (In Review)
 \examples{
 \dontrun{
 out <- treeowen_beeswarm(result, level = "both")
-print(out)           # combined patchwork
-print(out$feature)   # feature panel only
+print(out) # combined patchwork
+print(out$feature) # feature panel only
 }
 }

@@ -35,12 +35,15 @@ install.packages(c("xgboost", "lightgbm", "ranger", "treeshap",
 ## Installation
 
 ```r
-# Install Rcpp first (required for C++ compilation)
+# Install Rcpp first from CRAN (required for C++ compilation)
 install.packages("Rcpp")
 
-# Install treeowen from GitHub
+# Install devtools from CRAN
 install.packages("devtools")
-devtools::install_github("hk1785/treeowen")
+
+# Install treeowen from GitHub
+library(devtools)
+devtools::install_github("hk1785/treeowen", force = TRUE)
 ```
 
 ---------------------------------------------------------------------------------------------------------------------------------------

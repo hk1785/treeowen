@@ -1,4 +1,23 @@
-// =============================================================================
+// [[Rcpp::plugins(cpp11)]]
+
+#include <Rcpp.h>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+#include <numeric>
+#include <cstdint>
+#include <limits>
+
+
+// ── Package sentinel ─────────────────────────────────────────────────────────
+// Called by .onLoad to confirm the shared library loaded successfully.
+// Returns R NULL; never throws.
+// [[Rcpp::export]]
+SEXP treeowen_ping() {
+  return R_NilValue;
+}
+
+
 // treeowen_cpp.cpp  —  Rcpp C++ accelerators for TreeOwen v5.12
 // [[Rcpp::plugins(cpp11)]]
 //
@@ -80,23 +99,6 @@
 //   - 외부 export 함수: eval_v_forest_chunk_exact_cpp 제거 (v5.10)
 // =============================================================================
 
-
-// ── Package sentinel ─────────────────────────────────────────────────────────
-// Called by .onLoad to confirm the shared library loaded successfully.
-// Returns R NULL; never throws.
-// [[Rcpp::export]]
-SEXP treeowen_ping() {
-  return R_NilValue;
-}
-
-
-#include <Rcpp.h>
-#include <cmath>
-#include <vector>
-#include <algorithm>
-#include <numeric>
-#include <cstdint>
-#include <limits>
 
 using namespace Rcpp;
 
@@ -555,7 +557,7 @@ NumericVector inner_shapley_enum_one_group_cpp(
   const TreesCache&          cache_ref = get_cache_ref(trees_xptr);
   const std::vector<TreeDP>& trees     = cache_ref.trees;
   // [Revert-C07] fidx 참조 제거 — 역인덱스 미사용
-  const int B = (int)trees.size();
+  const int B = (int)trees.size(); (void)B;
 
   const int eff_maxj = std::max(maxj, cache_ref.maxj);
   std::vector<double> Vbuf(cache_ref.max_nn + 1, 0.0);

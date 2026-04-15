@@ -1,0 +1,40 @@
+# treeowen NAMESPACE
+# Hand-maintained to match the package structure.
+# After running devtools::document() this file will be regenerated from
+# roxygen2 @export tags — the two should be kept in sync.
+
+# ── Core user-facing functions ───────────────────────────────────────────────
+export(treeowen)
+export(treeowen_importance)
+export(treeowen_beeswarm)
+export(treeowen_hierarchical_beeswarm)
+
+# ── Reference enumerators (benchmarking / correctness testing) ───────────────
+export(treeowen_exact_enum)
+export(treeowen_exact_tuvalues)
+
+# ── Exported constants (used as default argument values) ─────────────────────
+export(TREEOWEN_AUTO_EXACT_MAX_M)
+export(TREEOWEN_INNER_BITMASK_DEFAULT)
+
+# ── Exported utilities ───────────────────────────────────────────────────────
+export(build_hierarchy_tree_binary)
+export(build_hierarchy_tree_from_layers)
+export(clear_inner_enum_cache)
+
+# ── S3 print methods ─────────────────────────────────────────────────────────
+S3method(print, treeowen_result)
+S3method(print, treeowen_importance)
+S3method(print, treeowen_plots)
+
+# ── Rcpp linkage ─────────────────────────────────────────────────────────────
+# evalCpp is required as a linkage sentinel for Rcpp C++ compilation.
+useDynLib(treeowen, .registration = TRUE)
+importFrom(Rcpp, evalCpp)
+
+# ── Base-package imports (suppress R CMD check NOTEs) ─────────────────────────
+importFrom(grDevices, adjustcolor)
+importFrom(grid, unit, arrow)
+importFrom(parallel, mclapply)
+importFrom(stats, quantile, setNames)
+importFrom(utils, head, txtProgressBar, setTxtProgressBar)

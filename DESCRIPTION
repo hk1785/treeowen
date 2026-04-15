@@ -1,0 +1,49 @@
+Package: treeowen
+Type: Package
+Title: Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values
+Version: 0.1.0
+Authors@R: person("Hyunwook", "Koh",
+    email = "hyunwook.koh@stonybrook.edu",
+    role  = c("aut", "cre"))
+Description: Provides exact and Monte Carlo algorithms for computing Owen values
+    in tree-based ensemble models, including gradient boosting machines
+    (XGBoost, LightGBM) and random forests (Ranger). The Owen value extends the
+    Shapley value to settings where features are organized into a priori groups,
+    allocating attribution in two stages: first across groups, then within each
+    group. The package implements hierarchy-guided group aggregation combined
+    with tree-aware dynamic programming to avoid explicit outer group subset
+    enumeration. Global importance measures and visualization tools (flat and
+    hierarchical beeswarm plots) are also provided.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.1.0)
+Imports:
+    Rcpp     (>= 1.0.7),
+    parallel,
+    grid,
+    grDevices,
+    stats,
+    utils
+Suggests:
+    ggplot2    (>= 3.4.0),
+    ggbeeswarm (>= 0.7.0),
+    patchwork  (>= 1.1.0),
+    scales,
+    xgboost,
+    lightgbm,
+    ranger,
+    treeshap,
+    doParallel,
+    foreach,
+    testthat   (>= 3.0.0),
+    knitr,
+    rmarkdown
+LinkingTo:
+    Rcpp
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+URL: https://github.com/hk1785/treeowen
+BugReports: https://github.com/hk1785/treeowen/issues

@@ -1,3 +1,4 @@
+// [[Rcpp::depends(Rcpp)]]
 // [[Rcpp::plugins(cpp11)]]
 
 #include <Rcpp.h>

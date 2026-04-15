@@ -22,18 +22,13 @@ Robust compatibility wrappers (.xgboost_unify_compat,
 .lightgbm_unify_compat, .ranger_unify_compat) handle all known
 version-compatibility issues across different releases of xgboost,
 lightgbm, ranger, and treeshap.
-} groups, allocating attribution in two stages: first across
-groups, then within each group. Hierarchy-guided group aggregation with
-tree-aware dynamic programming avoids explicit enumeration of outer group
-subsets. Global importance measures and visualisation tools (flat and
-hierarchical beeswarm plots) are also provided.
 }
 \section{Main workflow}{
 \enumerate{
  \item Fit a tree model and unify it with \pkg{treeshap}:
  \code{.xgboost_unify_compat()},
- \code{treeshap::lightgbm.unify()}, or
- \code{treeshap::ranger.unify()}.
+ \code{.lightgbm_unify_compat()}, or
+ \code{.ranger_unify_compat()}.
  \item Define a feature partition \code{groups} — a named list where each
  element is a character vector of feature names belonging to that
  group.

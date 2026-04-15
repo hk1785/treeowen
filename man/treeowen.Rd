@@ -4,8 +4,8 @@
 \description{
 Computes exact or Monte Carlo Owen values for every observation in \code{x}
 using a trained tree-based ensemble and a feature partition \code{groups}.
-The Owen value allocates attribution in two stages: an outer Shapley game
-across groups and an inner Shapley game within each group.
+Owen values allocate model attribution in two stages: first across feature
+groups, then within each group.
 }
 \usage{
 treeowen(
@@ -40,44 +40,43 @@ treeowen(
  \code{.lightgbm_unify_compat()} for LightGBM, or
  \code{.ranger_unify_compat()} for Ranger.
  These wrappers handle all known version-compatibility issues across
- different releases of each library and automatically fall back to
- direct tree parsing when treeshap calls fail. Use them instead of
- calling \code{treeshap::xgboost.unify()},
- \code{treeshap::lightgbm.unify()}, or
- \code{treeshap::ranger.unify()} directly.}
+ different releases of xgboost, lightgbm, ranger, and treeshap,
+ and automatically fall back to direct tree parsing when treeshap
+ calls fail.}
 
-\item{x}{A data frame or matrix of observations (n x p).
- Must contain the same features as \code{unified_model}.}
+\item{x}{A data frame or matrix of observations (rows = observations,
+ columns = features). Must contain the same features as the model.}
 
 \item{groups}{A named list of character vectors. Each element names the
  features belonging to that group. Together they must form a complete,
- non-overlapping partition of all features in \code{unified_model}.}
+ non-overlapping partition of all features in the model.}
 
-\item{method}{Character. Algorithm selection:
+\item{method}{Character string selecting the computation algorithm:
  \describe{
- \item{\code{"auto"}}{(default) Exact for groups with
- the group size < \code{auto_exact_max_m}; Monte Carlo otherwise.}
- \item{\code{"exact"}}{Force exact for all groups
- (requires the group size <= 60).}
- \item{\code{"approx"}}{Force Monte Carlo for all groups.}
+ \item{\code{"auto"}}{(default) Uses the exact method for groups
+  with fewer features than \code{auto_exact_max_m}, and Monte Carlo
+  for larger groups.}
+ \item{\code{"exact"}}{Forces the exact method for all groups.
+  Requires group size at most 60.}
+ \item{\code{"approx"}}{Forces Monte Carlo for all groups.}
  }}
 
-\item{hierarchy}{Controls the auxiliary binary tree mathcal{B} over
- groups. \code{NULL} (default) builds a balanced binary tree safe for any
- K. A nested list (see \code{\link{build_hierarchy_tree_binary}}),
- a numeric vector, or a K-column integer matrix (see
- \code{\link{build_hierarchy_tree_from_layers}}) are also accepted.
- The choice does not affect correctness, only runtime.}
+\item{hierarchy}{Controls the auxiliary binary tree over groups used
+ internally for computation. \code{NULL} (default) builds a balanced
+ binary tree over the K groups. A nested list, numeric vector, or
+ integer matrix can specify a custom structure. The choice does not
+ affect the correctness of results, only computation speed.
+ See \code{\link{build_hierarchy_tree_binary}} and
+ \code{\link{build_hierarchy_tree_from_layers}}.}
 
-\item{n_inner_mc}{Integer. Initial Monte Carlo permutation pairs per
- context when \code{method = "approx"} or \code{"auto"}.
- Default \code{64L}.}
+\item{n_inner_mc}{Integer. Initial number of Monte Carlo permutation
+ pairs per group context. Default \code{64L}.}
 
-\item{inner_antithetic}{Logical. Antithetic sampling to reduce Monte Carlo
- variance. Default \code{TRUE}.}
+\item{inner_antithetic}{Logical. Use antithetic sampling to reduce
+ Monte Carlo variance. Default \code{TRUE}.}
 
-\item{target_se_inner}{Numeric. Target standard error for adaptive Monte
- Carlo stopping. Default \code{1e-3}.}
+\item{target_se_inner}{Numeric. Target standard error for adaptive
+ Monte Carlo stopping. Default \code{1e-3}.}
 
 \item{min_inner_mc}{Integer. Minimum Monte Carlo pairs per context.
  Default \code{32L}.}
@@ -85,99 +84,106 @@ treeowen(
 \item{max_inner_mc}{Integer. Maximum Monte Carlo pairs per context.
  Default \code{512L}.}
 
-\item{chunk_size_inner}{Integer. Batch size for inner forest evaluation.
- Default \code{131072L}.}
+\item{chunk_size_inner}{Integer. Batch size for inner forest
+ evaluation. Default \code{131072L}.}
 
-\item{max_bytes}{Numeric. Memory limit (bytes) for batched evaluation.
- Default \code{512 * 1024^2} (512 MB).}
+\item{max_bytes}{Numeric. Memory limit in bytes for batched
+ evaluation. Default \code{512 * 1024^2} (512 MB).}
 
-\item{inner_bitmask_max}{Integer. Maximum the group size for bitmask-based
- exact enumeration. Default \code{TREEOWEN_INNER_BITMASK_DEFAULT} (60).}
+\item{inner_bitmask_max}{Integer. Maximum group size for the
+ bitmask-based exact enumerator. Default
+ \code{TREEOWEN_INNER_BITMASK_DEFAULT} (60).}
 
-\item{auto_exact_max_m}{Integer. Groups with the group size >=
- \code{auto_exact_max_m} use Monte Carlo when \code{method = "auto"}.
- Default \code{TREEOWEN_AUTO_EXACT_MAX_M} (30).}
+\item{auto_exact_max_m}{Integer. Groups with this many features or
+ more use Monte Carlo when \code{method = "auto"}. Default
+ \code{TREEOWEN_AUTO_EXACT_MAX_M} (30).}
 
-\item{check_efficiency}{Logical. Verify the efficiency axiom
- sum_i psi_i = f(x) - E[f(X)] after computation. Warns if
- violated beyond \code{efficiency_tol}. Default \code{FALSE}.}
+\item{check_efficiency}{Logical. After computation, verify that Owen
+ values sum to the prediction minus the average prediction for each
+ observation. Warns if the deviation exceeds \code{efficiency_tol}.
+ Default \code{FALSE}.}
 
 \item{efficiency_tol}{Numeric. Tolerance for the efficiency check.
  Default \code{1e-6}.}
 
 \item{dp_progress}{Logical. Show a progress bar. Default \code{TRUE}.}
 
-\item{dp_print_every}{Integer. Progress bar update frequency (rows).
+\item{dp_print_every}{Integer. Progress bar update frequency in rows.
  Default \code{1L}.}
 
-\item{dp_newline_every}{Integer. Deprecated; kept for backwards
+\item{dp_newline_every}{Integer. Deprecated; retained for backwards
  compatibility. Default \code{10L}.}
 
 \item{eta_alpha}{Numeric. EMA smoothing factor for ETA estimation.
  Default \code{0.2}.}
 
-\item{n_cores}{Integer. Parallel cores. Default \code{1L}. Values
- \code{> 1} use \code{parallel::mclapply()} on Linux/macOS.
- Windows requires \code{n_cores = 1L}.}
+\item{n_cores}{Integer. Number of parallel cores. Default \code{1L}.
+ Values greater than 1 use \code{parallel::mclapply()} on Linux and
+ macOS. On Windows, keep this at 1.}
 
-\item{use_cpp}{Logical. Use compiled C++ routines (strongly recommended).
- Default \code{TRUE}.}
+\item{use_cpp}{Logical. Use the compiled C++ backend. Must be
+ \code{TRUE}; a pure-R fallback is not available. Default \code{TRUE}.}
 
 \item{verbose}{Logical. Print diagnostic messages. Default \code{TRUE}.}
 }
-\value{
-An object of class \code{"treeowen_result"} (a named list):
-\describe{
- \item{\code{owens}}{Data frame (n x p) of Owen values.
- Column names match the features in \code{x}.}
- \item{\code{observations}}{Data frame (n x p) of input
- observations.}
- \item{\code{groups}}{The \code{groups} argument as supplied.}
- \item{\code{baseline}}{Numeric vector of length n: the empty-set
- forest value v_x(varnothing) = E[f(X)] per observation.}
- \item{\code{v_all}}{Numeric vector of length n: the full-set value
- v_x(N) = f(x) per observation.}
- \item{\code{stats}}{Named list of diagnostics: \code{n}, \code{p},
- \code{K}, tree counts, effective method, group methods, C++ usage,
- and parallelism settings.}
- \item{\code{note}}{Character string summarising the run configuration.}
-}
-}
+
 \details{
-\subsection{Owen value definition}{
-Let N = {1,ldots,p} be partitioned into K non-overlapping
-groups G_1,ldots,G_K. The Owen value of feature i in G_k
-is
-} w(|T|,K)
- \sum_{S \subseteq G_k\setminus\{i\}} w(|S|,|G_k|)
- \bigl[v_x(G_T \cup S \cup \{i\}) - v_x(G_T \cup S)\bigr]
-}
-where G_T = bigcup_{k'in TG_{k'}}, v_x(cdot) is the
-tree ensemble's conditional expectation, and
-w(s,m) = s!(m-s-1)!/m! is the Shapley weight.
+\subsection{What are Owen values?}{
+Owen values extend standard Shapley values to settings where features
+are organized into groups. Attribution is allocated in two stages.
+In the first stage, each group receives a score reflecting how much
+the group as a whole shifts the prediction away from the average
+prediction. In the second stage, that group-level score is divided
+among the individual features in the group using the standard Shapley
+formula. The final Owen values satisfy the efficiency property: they
+sum to the prediction minus the average prediction across all
+observations.
 }
 \subsection{Algorithms}{
 \describe{
- \item{Exact (\code{"exact"})}{Bitmask enumeration of all
- 2^{the group size} inner subsets. Feasible for the group size <= 30
- (R integer path) or up to 60 (C++ path).}
- \item{Monte Carlo (\code{"approx"})}{Antithetic permutation pairs.
- Adaptive stopping via \code{target_se_inner}, \code{min_inner_mc},
- \code{max_inner_mc}.}
- \item{Auto (\code{"auto"})}{Per-group selection: exact if
- the group size < \code{auto_exact_max_m}, Monte Carlo otherwise.}
+ \item{Exact (\code{"exact"})}{Enumerates all subsets of each group
+  explicitly. Feasible for groups with up to 30 features using R
+  integer arithmetic, or up to 60 features using the C++ path.}
+ \item{Monte Carlo (\code{"approx"})}{Uses antithetic permutation
+  pairs to estimate inner Shapley values. Sampling is controlled
+  adaptively by \code{target_se_inner}, \code{min_inner_mc}, and
+  \code{max_inner_mc}.}
+ \item{Auto (\code{"auto"})}{Applies exact to groups with fewer
+  features than \code{auto_exact_max_m} and Monte Carlo to the rest.}
 }
 }
 \subsection{Efficiency axiom}{
-For the exact algorithm, sum_ipsi_i(x)=f(x)-E[f(X)] holds up to
-floating-point precision. Set \code{check_efficiency = TRUE} to monitor.
+For the exact algorithm, Owen values sum exactly to the prediction
+minus the average, up to floating-point precision. Set
+\code{check_efficiency = TRUE} to monitor this property at runtime.
+For Monte Carlo results the deviation is controlled by
+\code{target_se_inner}.
 }
 \subsection{Parallelism}{
-Uses \code{parallel::mclapply()} (fork-based) on Linux/macOS. Each
-worker independently rebuilds the C++ XPtr. Windows: \code{n_cores = 1L}
-only.
+Uses \code{parallel::mclapply()} (fork-based) on Linux and macOS.
+Each worker independently rebuilds the C++ internal representation.
+On Windows, use \code{n_cores = 1L}.
 }
 }
+
+\value{
+An object of class \code{"treeowen_result"} (a named list):
+\describe{
+ \item{\code{owens}}{Data frame of Owen values (rows = observations,
+  columns = features). Column names match the features in \code{x}.}
+ \item{\code{observations}}{Data frame of the input observations.}
+ \item{\code{groups}}{The \code{groups} argument as supplied.}
+ \item{\code{baseline}}{Numeric vector: the average model prediction
+  used as the reference baseline.}
+ \item{\code{v_all}}{Numeric vector: the model prediction for each
+  observation.}
+ \item{\code{stats}}{Named list of diagnostics including the number
+  of observations, features, groups, trees, effective method, group
+  methods, C++ usage, and parallelism settings.}
+ \item{\code{note}}{Character string summarising the run.}
+}
+}
+
 \references{
 Koh H. Efficient Game-Theoretic Explanations for Tree-Based Ensembles
 via Owen Values. (In Review)
@@ -190,34 +196,28 @@ via Owen Values. (In Review)
 }
 \examples{
 \dontrun{
-## ── Synthetic data (5 groups × 5 features, n = 50) ─────────────────────────
+## Synthetic data: 5 groups of 5 features each, 50 observations
 set.seed(42)
-n_obs <- 50L; n_groups <- 5L; n_feat_g <- 5L
-feat_names <- paste0("F", rep(seq_len(n_feat_g), times = n_groups),
- "G", rep(seq_len(n_groups), each = n_feat_g))
-X <- as.data.frame(matrix(rnorm(n_obs * 25L), n_obs, 25L,
- dimnames = list(NULL, feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
-Y <- as.integer(log_odds > 0)
-groups <- setNames(lapply(seq_len(n_groups),
- function(k) paste0("F", seq_len(n_feat_g), "G", k)),
- paste0("G", seq_len(n_groups)))
+feat_names <- paste0("F", rep(seq_len(5), times = 5),
+                     "G", rep(seq_len(5), each  = 5))
+X <- as.data.frame(matrix(rnorm(50 * 25), 50, 25,
+                           dimnames = list(NULL, feat_names)))
+Y <- as.integer(0.8 * X$F1G1 - 0.6 * X$F2G1 + 0.5 * X$F1G3 > 0)
+groups <- setNames(
+  lapply(seq_len(5), function(k) paste0("F", seq_len(5), "G", k)),
+  paste0("G", seq_len(5)))
 
-## ── XGBoost model ───────────────────────────────────────────────────────────
-library(xgboost); library(treeshap)
+## Fit XGBoost and compute Owen values
+library(xgboost)
 xgb_mat <- xgb.DMatrix(as.matrix(X), label = Y)
 xgb_mod <- xgboost(data = xgb_mat, nrounds = 50L, max_depth = 3L,
- eta = 0.1, objective = "binary:logistic", verbose = 0L)
+                   eta = 0.1, objective = "binary:logistic", verbose = 0L)
 unified <- .xgboost_unify_compat(xgb_mod, X)
-
-## ── Owen values ─────────────────────────────────────────────────────────────
-result <- treeowen(unified, X, groups,
- method = "auto", dp_progress = FALSE, verbose = TRUE)
+result  <- treeowen(unified, X, groups,
+                    method = "auto", dp_progress = FALSE, verbose = TRUE)
 print(result)
-dim(result$owens) # 50 x 25
-head(result$owens[, 1:5]) # first 5 Owen values per observation
 
-## ── Efficiency axiom (should be < 1e-6 for exact) ──────────────────────────
+## Check efficiency axiom
 eff_err <- abs(rowSums(result$owens) - (result$v_all - result$baseline))
 cat(sprintf("Max efficiency error: %.2e\n", max(eff_err)))
 }

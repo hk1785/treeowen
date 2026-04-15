@@ -1,3 +1,26 @@
+# treeowen 0.2.2
+
+## Bug fixes
+
+* **`cpp=FALSE` / `Rcpp.h not found` (persistent)**
+  The root issue was that `src/Makevars` relied solely on
+  `$(shell Rscript --no-save --no-restore -e "cat(Rcpp:::CxxFlags())")`.
+  On some macOS arm64 and other non-standard R installations, `Rscript`
+  is not on the shell `PATH` used by `make` during `R CMD INSTALL`, so
+  the shell substitution returns an empty string.  With an empty
+  `RCPP_CFLAGS`, the compiler never sees `-I/path/to/Rcpp/include`,
+  `Rcpp.h` is not found, the `.so` / `.dylib` is never built, and
+  `.onLoad` silently sets `cpp=FALSE`.
+
+  Fix: `src/Makevars` now uses a two-strategy approach:
+
+  1. Try `Rscript --no-save --no-restore -e "cat(Rcpp:::CxxFlags())"`.
+  2. If that returns empty, fall back to `-I"$(R_HOME)/library/Rcpp/include"`,
+     which R CMD INSTALL always sets via `R_HOME`.
+
+  This covers all known installation layouts including `/opt/R/arm64`
+  (Posit arm64 distribution) and other non-standard paths.
+
 # treeowen 0.2.1
 
 ## Bug fix (cpp=FALSE)

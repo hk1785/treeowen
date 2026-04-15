@@ -1,3 +1,15 @@
+# treeowen 0.1.6
+
+## Bug fix
+
+* Fixed `Error in `[`.data.table` ... ':=' was used ... cedta()`.
+  `data.table` was listed in `Suggests` (optional), so R's
+  `cedta()` (calling-environment data.table awareness) check failed
+  at runtime even though the package was installed.
+  `data.table` is now in `Imports` and `import(data.table)` is
+  declared in `NAMESPACE`, which makes `:=`, `setnames()`, and
+  all other data.table operations work correctly inside the package.
+
 # treeowen 0.1.5
 
 ## Documentation

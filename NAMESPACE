@@ -34,6 +34,11 @@ S3method(print, treeowen_result)
 S3method(print, treeowen_importance)
 S3method(print, treeowen_plots)
 
+# ── data.table import ────────────────────────────────────────────────────────
+# Required so that := and other data.table operators work correctly inside
+# the package (cedta() check). Importing .SD suppresses R CMD check NOTE.
+import(data.table)
+
 # ── Rcpp linkage ─────────────────────────────────────────────────────────────
 # evalCpp is required as a linkage sentinel for Rcpp C++ compilation.
 useDynLib(treeowen, .registration = TRUE)

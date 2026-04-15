@@ -1010,9 +1010,6 @@ clear_inner_enum_cache <- function() {
 xgboost_unify_compat <- function(model, data, recalculate = FALSE) {
   if (!requireNamespace("xgboost",    quietly = TRUE))
     stop('Package "xgboost" needed. Please install it.', call. = FALSE)
-  if (!requireNamespace("data.table", quietly = TRUE))
-    stop('Package "data.table" needed. Please install it.', call. = FALSE)
-
   # [XGB-7] Try both argument names for xgb.model.dt.tree()
   xgbtree <- tryCatch(
     xgboost::xgb.model.dt.tree(model = model),
@@ -1479,9 +1476,8 @@ ranger_unify_compat <- function(model, data, recalculate = FALSE) {
   }
 
   # ── Path 2: patched treeInfo() + ranger_unify.common() ──────────────────────
-  if (requireNamespace("treeshap",   quietly = TRUE) &&
-      requireNamespace("data.table", quietly = TRUE) &&
-      requireNamespace("ranger",     quietly = TRUE)) {
+  if (requireNamespace("treeshap", quietly = TRUE) &&
+      requireNamespace("ranger",   quietly = TRUE)) {
 
     ret2 <- tryCatch({
       n_trees <- model$num.trees

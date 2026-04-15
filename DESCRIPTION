@@ -1,7 +1,7 @@
 Package: treeowen
 Type: Package
 Title: Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values
-Version: 0.1.5
+Version: 0.1.6
 Authors@R: person("Hyunwook", "Koh",
     email = "hyunwook.koh@stonybrook.edu",
     role  = c("aut", "cre"))
@@ -24,7 +24,8 @@ RoxygenNote: 7.3.2
 Depends:
     R (>= 4.1.0)
 Imports:
-    Rcpp     (>= 1.0.7),
+    Rcpp       (>= 1.0.7),
+    data.table (>= 1.9.8),
     parallel,
     grid,
     grDevices,
@@ -41,7 +42,6 @@ Suggests:
     treeshap,
     doParallel,
     foreach,
-    data.table,
     testthat   (>= 3.0.0),
     knitr,
     rmarkdown

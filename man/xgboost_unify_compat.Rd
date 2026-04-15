@@ -1,5 +1,5 @@
-\name{.xgboost_unify_compat}
-\alias{.xgboost_unify_compat}
+\name{xgboost_unify_compat}
+\alias{xgboost_unify_compat}
 \title{Unify an XGBoost Model for Use with treeowen}
 \description{
 A robust replacement for \code{treeshap::xgboost.unify()} that handles
@@ -15,7 +15,7 @@ stored as node-ID strings instead of row indices; \code{model$feature_names}
 being NULL for models trained from unnamed matrices.
 }
 \usage{
-.xgboost_unify_compat(model, data, recalculate = FALSE)
+xgboost_unify_compat(model, data, recalculate = FALSE)
 }
 \arguments{
 \item{model}{A trained \code{xgb.Booster} object.}
@@ -30,16 +30,19 @@ being NULL for models trained from unnamed matrices.
 A \code{model_unified} object suitable for \code{\link{treeowen}}.
 }
 \seealso{
-\code{\link{treeowen}}, \code{\link{.lightgbm_unify_compat}},
-\code{\link{.ranger_unify_compat}}
+\code{\link{treeowen}}, \code{\link{lightgbm_unify_compat}},
+\code{\link{ranger_unify_compat}}
 }
 \examples{
 \dontrun{
+library(treeowen)
+library(xgboost)
+
 library(xgboost)
 dm      <- xgb.DMatrix(as.matrix(X), label = Y)
 model   <- xgboost(dm, nrounds = 100, objective = "binary:logistic",
                    verbose = 0)
-unified <- .xgboost_unify_compat(model, X)
+unified <- xgboost_unify_compat(model, X)
 result  <- treeowen(unified, X, groups)
 }
 }

@@ -36,9 +36,9 @@ treeowen(
 }
 \arguments{
 \item{unified_model}{A unified model object produced by one of the
- compatibility wrappers: \code{.xgboost_unify_compat()} for XGBoost,
- \code{.lightgbm_unify_compat()} for LightGBM, or
- \code{.ranger_unify_compat()} for Ranger.
+ compatibility wrappers: \code{xgboost_unify_compat()} for XGBoost,
+ \code{lightgbm_unify_compat()} for LightGBM, or
+ \code{ranger_unify_compat()} for Ranger.
  These wrappers handle all known version-compatibility issues across
  different releases of xgboost, lightgbm, ranger, and treeshap,
  and automatically fall back to direct tree parsing when treeshap
@@ -196,6 +196,9 @@ via Owen Values. (In Review)
 }
 \examples{
 \dontrun{
+library(treeowen)
+library(xgboost)
+
 ## Synthetic data: 5 groups of 5 features each, 50 observations
 set.seed(42)
 feat_names <- paste0("F", rep(seq_len(5), times = 5),
@@ -212,7 +215,7 @@ library(xgboost)
 xgb_mat <- xgb.DMatrix(as.matrix(X), label = Y)
 xgb_mod <- xgboost(data = xgb_mat, nrounds = 50L, max_depth = 3L,
                    eta = 0.1, objective = "binary:logistic", verbose = 0L)
-unified <- .xgboost_unify_compat(xgb_mod, X)
+unified <- xgboost_unify_compat(xgb_mod, X)
 result  <- treeowen(unified, X, groups,
                     method = "auto", dp_progress = FALSE, verbose = TRUE)
 print(result)

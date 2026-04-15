@@ -1,5 +1,5 @@
-\name{.ranger_unify_compat}
-\alias{.ranger_unify_compat}
+\name{ranger_unify_compat}
+\alias{ranger_unify_compat}
 \title{Unify a Ranger Model for Use with treeowen}
 \description{
 A robust replacement for \code{treeshap::ranger.unify()} that handles
@@ -20,7 +20,7 @@ leaf predictions as scalar, matrix, or list of vectors.
 The model must be trained with \code{probability = TRUE}.
 }
 \usage{
-.ranger_unify_compat(model, data, recalculate = FALSE)
+ranger_unify_compat(model, data, recalculate = FALSE)
 }
 \arguments{
 \item{model}{A trained \code{ranger} object. Must have been trained
@@ -33,16 +33,19 @@ The model must be trained with \code{probability = TRUE}.
 A \code{model_unified} object suitable for \code{\link{treeowen}}.
 }
 \seealso{
-\code{\link{treeowen}}, \code{\link{.xgboost_unify_compat}},
-\code{\link{.lightgbm_unify_compat}}
+\code{\link{treeowen}}, \code{\link{xgboost_unify_compat}},
+\code{\link{lightgbm_unify_compat}}
 }
 \examples{
 \dontrun{
+library(treeowen)
+library(ranger)
+
 library(ranger)
 df      <- cbind(X, .y = factor(Y))
 model   <- ranger(.y ~ ., data = df, num.trees = 100,
                   probability = TRUE, keep.inbag = TRUE)
-unified <- .ranger_unify_compat(model, X)
+unified <- ranger_unify_compat(model, X)
 result  <- treeowen(unified, X, groups)
 }
 }

@@ -60,6 +60,9 @@ via Owen Values. (In Review)
 }
 \examples{
 \dontrun{
+library(treeowen)
+library(xgboost)
+
 ## Balanced binary tree (default)
 tree1 <- build_hierarchy_tree_from_layers(K = 5L, hierarchy = NULL)
 str(tree1, max.level = 2)
@@ -81,7 +84,7 @@ library(xgboost); library(treeshap)
 xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label=Y),
  nrounds = 50L, max_depth = 3L, eta = 0.1,
  objective = "binary:logistic", verbose = 0L)
-unified <- .xgboost_unify_compat(xgb_mod, X)
+unified <- xgboost_unify_compat(xgb_mod, X)
 
 ## Layer-matrix hierarchy for 5 groups
 hier5 <- matrix(c(1,1,2,2,3), nrow=1) # {G1,G2}, {G3,G4}, {G5}

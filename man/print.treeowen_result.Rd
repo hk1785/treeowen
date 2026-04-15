@@ -20,6 +20,9 @@ via Owen Values. (In Review)
 \seealso{\code{\link{treeowen}}}
 \examples{
 \dontrun{
+library(treeowen)
+library(xgboost)
+
 result <- treeowen(unified, X, groups, dp_progress=FALSE, verbose=FALSE)
 print(result)
 }

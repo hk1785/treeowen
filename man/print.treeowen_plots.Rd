@@ -21,6 +21,12 @@ via Owen Values. (In Review)
 \seealso{\code{\link{treeowen_beeswarm}}}
 \examples{
 \dontrun{
+library(treeowen)
+library(xgboost)
+library(ggplot2)
+library(ggbeeswarm)
+library(patchwork)
+
 out <- treeowen_beeswarm(result, level = "both")
 print(out) # combined patchwork
 print(out$feature) # feature panel only

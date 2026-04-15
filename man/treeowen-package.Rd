@@ -18,17 +18,17 @@ observations.
 
 The package includes exact and Monte Carlo algorithms, global
 importance measures, and flat and hierarchical beeswarm visualizations.
-Robust compatibility wrappers (.xgboost_unify_compat,
-.lightgbm_unify_compat, .ranger_unify_compat) handle all known
+Robust compatibility wrappers (xgboost_unify_compat,
+lightgbm_unify_compat, ranger_unify_compat) handle all known
 version-compatibility issues across different releases of xgboost,
 lightgbm, ranger, and treeshap.
 }
 \section{Main workflow}{
 \enumerate{
  \item Fit a tree model and unify it with \pkg{treeshap}:
- \code{.xgboost_unify_compat()},
- \code{.lightgbm_unify_compat()}, or
- \code{.ranger_unify_compat()}.
+ \code{xgboost_unify_compat()},
+ \code{lightgbm_unify_compat()}, or
+ \code{ranger_unify_compat()}.
  \item Define a feature partition \code{groups} — a named list where each
  element is a character vector of feature names belonging to that
  group.

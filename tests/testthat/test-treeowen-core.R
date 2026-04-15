@@ -42,7 +42,7 @@ test_that("[Core-XGB] treeowen() efficiency axiom holds for XGBoost", {
   set.seed(42)
   m  <- xgboost::xgboost(data = dm, nrounds = 20L, max_depth = 2L,
                           objective = "binary:logistic", verbose = 0)
-  u  <- .xgboost_unify_compat(m, d$X)
+  u  <- xgboost_unify_compat(m, d$X)
 
   res <- treeowen(u, d$X, d$groups, method = "exact",
                   dp_progress = FALSE, verbose = FALSE)
@@ -72,7 +72,7 @@ test_that("[Core-LGB] treeowen() efficiency axiom holds for LightGBM", {
   set.seed(42)
   m  <- lightgbm::lgb.train(params = params, data = ds, nrounds = 20L,
                               verbose = -1L)
-  u  <- .lightgbm_unify_compat(m, d$X)
+  u  <- lightgbm_unify_compat(m, d$X)
 
   res <- treeowen(u, d$X, d$groups, method = "exact",
                   dp_progress = FALSE, verbose = FALSE)
@@ -98,7 +98,7 @@ test_that("[Core-RNG] treeowen() efficiency axiom holds for Ranger", {
   m  <- ranger::ranger(.y ~ ., data = df, num.trees = 20L, max.depth = 3L,
                         probability = TRUE, keep.inbag = TRUE,
                         write.forest = TRUE, seed = 42L)
-  u  <- .ranger_unify_compat(m, d$X)
+  u  <- ranger_unify_compat(m, d$X)
 
   res <- treeowen(u, d$X, d$groups, method = "exact",
                   dp_progress = FALSE, verbose = FALSE)
@@ -124,7 +124,7 @@ test_that("[Core] treeowen_result has all required fields", {
   set.seed(1)
   m  <- xgboost::xgboost(data = dm, nrounds = 10L, max_depth = 2L,
                           objective = "binary:logistic", verbose = 0)
-  u  <- .xgboost_unify_compat(m, d$X)
+  u  <- xgboost_unify_compat(m, d$X)
   res <- treeowen(u, d$X, d$groups, method = "exact",
                   dp_progress = FALSE, verbose = FALSE)
 
@@ -155,7 +155,7 @@ test_that("[Core] treeowen_importance() returns correct structure", {
   set.seed(1)
   m  <- xgboost::xgboost(data = dm, nrounds = 10L, max_depth = 2L,
                           objective = "binary:logistic", verbose = 0)
-  u   <- .xgboost_unify_compat(m, d$X)
+  u   <- xgboost_unify_compat(m, d$X)
   res <- treeowen(u, d$X, d$groups, method = "exact",
                   dp_progress = FALSE, verbose = FALSE)
   imp <- treeowen_importance(res, type = "both", sort = TRUE, normalize = FALSE)
@@ -187,7 +187,7 @@ test_that("[Core] treeowen_importance(normalize=TRUE) group importances sum to 1
   set.seed(1)
   m  <- xgboost::xgboost(data = dm, nrounds = 10L, max_depth = 2L,
                           objective = "binary:logistic", verbose = 0)
-  u   <- .xgboost_unify_compat(m, d$X)
+  u   <- xgboost_unify_compat(m, d$X)
   res <- treeowen(u, d$X, d$groups, method = "exact",
                   dp_progress = FALSE, verbose = FALSE)
   imp <- treeowen_importance(res, type = "group", normalize = TRUE)
@@ -208,7 +208,7 @@ test_that("[Core] treeowen() method='approx' completes without error", {
   set.seed(1)
   m  <- xgboost::xgboost(data = dm, nrounds = 10L, max_depth = 2L,
                           objective = "binary:logistic", verbose = 0)
-  u  <- .xgboost_unify_compat(m, d$X)
+  u  <- xgboost_unify_compat(m, d$X)
 
   expect_no_error(
     treeowen(u, d$X, d$groups, method = "approx",
@@ -230,7 +230,7 @@ test_that("[Core] treeowen() method='auto' splits methods correctly", {
   set.seed(1)
   m  <- xgboost::xgboost(data = dm, nrounds = 10L, max_depth = 2L,
                           objective = "binary:logistic", verbose = 0)
-  u  <- .xgboost_unify_compat(m, d$X)
+  u  <- xgboost_unify_compat(m, d$X)
 
   # All groups have size 2 < auto_exact_max_m=3 → all exact
   res <- treeowen(u, d$X, d$groups, method = "auto", auto_exact_max_m = 3L,
@@ -252,7 +252,7 @@ test_that("[Core] print.treeowen_result runs without error", {
   set.seed(1)
   m  <- xgboost::xgboost(data = dm, nrounds = 5L, max_depth = 2L,
                           objective = "binary:logistic", verbose = 0)
-  u   <- .xgboost_unify_compat(m, d$X)
+  u   <- xgboost_unify_compat(m, d$X)
   res <- treeowen(u, d$X, d$groups, method = "exact",
                   dp_progress = FALSE, verbose = FALSE)
 

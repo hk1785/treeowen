@@ -207,7 +207,7 @@ test_that("[utils] model_unified attributes are set correctly by compat wrappers
   Y  <- as.integer(rowSums(X) > 0)
   dm <- xgboost::xgb.DMatrix(X, label = Y)
   m  <- xgboost::xgboost(dm, nrounds = 5L, objective = "binary:logistic", verbose = 0)
-  u  <- .xgboost_unify_compat(m, X)
+  u  <- xgboost_unify_compat(m, X)
 
   expect_equal(attr(u, "model"), "xgboost")
   expect_true(isTRUE(attr(u, "missing_support")))

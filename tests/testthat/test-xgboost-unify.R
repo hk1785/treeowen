@@ -1,6 +1,6 @@
 # tests/testthat/test-xgboost-unify.R
 #
-# Unit tests for .xgboost_unify_compat()
+# Unit tests for xgboost_unify_compat()
 #
 # Covers failure modes:
 #   [XGB-1]  treeshap::xgboost.unify() bypass
@@ -41,7 +41,7 @@ test_that("[XGB] output has correct class and structure", {
   skip_if_not_installed("xgboost")
   skip_if_not_installed("data.table")
   fx <- .make_xgb_fixture()
-  u  <- .xgboost_unify_compat(fx$model, fx$X)
+  u  <- xgboost_unify_compat(fx$model, fx$X)
 
   expect_s3_class(u, "model_unified")
   expect_true(is.data.frame(u$model))
@@ -62,7 +62,7 @@ test_that("[XGB] feature_names match training data columns", {
   skip_if_not_installed("xgboost")
   skip_if_not_installed("data.table")
   fx <- .make_xgb_fixture()
-  u  <- .xgboost_unify_compat(fx$model, fx$X)
+  u  <- xgboost_unify_compat(fx$model, fx$X)
   expect_equal(sort(u$feature_names), sort(fx$feature_names))
 })
 
@@ -73,7 +73,7 @@ test_that("[XGB-4] Yes/No/Missing are integer row indices (not node-ID strings)"
   skip_if_not_installed("xgboost")
   skip_if_not_installed("data.table")
   fx <- .make_xgb_fixture()
-  u  <- .xgboost_unify_compat(fx$model, fx$X)
+  u  <- xgboost_unify_compat(fx$model, fx$X)
   m  <- u$model
   n  <- nrow(m)
   internal <- !is.na(m$Feature)
@@ -119,13 +119,13 @@ test_that("[XGB-2] wrapper handles missing 'ID' column by reconstruction", {
   dt <- data.table::as.data.table(xgboost::xgb.model.dt.tree(model = fx$model))
   if ("ID" %in% colnames(dt)) {
     dt_no_id <- dt[, !("ID"), with = FALSE]
-    # Manually apply the reconstruction logic from .xgboost_unify_compat
+    # Manually apply the reconstruction logic from xgboost_unify_compat
     dt_no_id[, ID := paste(Tree, Node, sep = "-")]
     expect_true("ID" %in% colnames(dt_no_id))
     expect_equal(dt$ID, dt_no_id$ID)
   } else {
     # Already no ID — wrapper should still succeed
-    u <- .xgboost_unify_compat(fx$model, fx$X)
+    u <- xgboost_unify_compat(fx$model, fx$X)
     expect_s3_class(u, "model_unified")
   }
 })
@@ -171,7 +171,7 @@ test_that("[XGB-5] NULL model feature_names falls back to colnames(data)", {
   expect_null(m_nonames$feature_names)  # confirm NULL
 
   X_named <- fx$X  # provide named data as fallback
-  u <- .xgboost_unify_compat(m_nonames, X_named)
+  u <- xgboost_unify_compat(m_nonames, X_named)
   expect_s3_class(u, "model_unified")
   expect_equal(u$feature_names, colnames(X_named))
 })
@@ -183,7 +183,7 @@ test_that("[XGB-6] internal nodes have NA Prediction; leaf nodes have numeric Pr
   skip_if_not_installed("xgboost")
   skip_if_not_installed("data.table")
   fx <- .make_xgb_fixture()
-  u  <- .xgboost_unify_compat(fx$model, fx$X)
+  u  <- xgboost_unify_compat(fx$model, fx$X)
   m  <- u$model
 
   internal <- !is.na(m$Feature)
@@ -202,7 +202,7 @@ test_that("[XGB] model_unified passes .prepare_dp_model without error", {
   skip_if_not_installed("xgboost")
   skip_if_not_installed("data.table")
   fx <- .make_xgb_fixture()
-  u  <- .xgboost_unify_compat(fx$model, fx$X)
+  u  <- xgboost_unify_compat(fx$model, fx$X)
 
   X_df <- as.data.frame(fx$X)
   dp   <- .prepare_dp_model(u, colnames(X_df))
@@ -220,8 +220,8 @@ test_that("[XGB] matrix and data.frame inputs both produce valid output", {
   skip_if_not_installed("data.table")
   fx <- .make_xgb_fixture()
 
-  u_mat <- .xgboost_unify_compat(fx$model, fx$X)
-  u_df  <- .xgboost_unify_compat(fx$model, as.data.frame(fx$X))
+  u_mat <- xgboost_unify_compat(fx$model, fx$X)
+  u_df  <- xgboost_unify_compat(fx$model, as.data.frame(fx$X))
 
   expect_s3_class(u_mat, "model_unified")
   expect_s3_class(u_df,  "model_unified")

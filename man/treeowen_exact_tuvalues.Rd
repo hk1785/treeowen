@@ -72,11 +72,12 @@ log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3
 Y <- as.integer(log_odds > 0)
 groups <- setNames(lapply(1:5, function(k) paste0("F",1:5,"G",k)), paste0("G",1:5))
 
-library(xgboost); library(treeshap)
+library(treeowen)
+library(xgboost)
 xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label=Y),
  nrounds = 50L, max_depth = 3L, eta = 0.1,
  objective = "binary:logistic", verbose = 0L)
-unified <- .xgboost_unify_compat(xgb_mod, X)
+unified <- xgboost_unify_compat(xgb_mod, X)
 
 small_x <- X[1:5, ]
 small_g <- groups[c("G1","G2")]

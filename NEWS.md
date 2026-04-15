@@ -1,9 +1,42 @@
+# treeowen 0.1.5
+
+## Documentation
+
+* Added `library()` calls to the top of every `\examples{}` block in
+  all man pages so examples are self-contained and runnable out of the box.
+  - `library(treeowen)` added to every file that had a non-trivial example.
+  - `library(xgboost)` added wherever XGBoost is used.
+  - `library(lightgbm)` / `library(ranger)` added to the respective
+    unifier wrapper man pages.
+  - `library(ggplot2)`, `library(ggbeeswarm)`, `library(patchwork)`
+    added to `treeowen_beeswarm.Rd`, `treeowen_hierarchical_beeswarm.Rd`,
+    and `print.treeowen_plots.Rd`.
+* README: added `library(ggplot2)`, `library(ggbeeswarm)`,
+  `library(patchwork)` to the beeswarm and hierarchical beeswarm example
+  sections.
+
+# treeowen 0.1.4
+
+## Breaking change (fix)
+
+* Renamed the three model-unification wrappers to remove the leading dot:
+  - `xgboost_unify_compat()`  →  `xgboost_unify_compat()`
+  - `lightgbm_unify_compat()` →  `lightgbm_unify_compat()`
+  - `ranger_unify_compat()`   →  `ranger_unify_compat()`
+
+  Functions whose names start with `.` are hidden from the R search path
+  even when listed in NAMESPACE, so the previous names could not be called
+  directly after `library(treeowen)`. The new names work as expected.
+
+  Update your code: replace every `xgboost_unify_compat(` with
+  `xgboost_unify_compat(`, and similarly for the other two wrappers.
+
 # treeowen 0.1.3
 
 ## Bug fix
 
-* Exported `.xgboost_unify_compat()`, `.lightgbm_unify_compat()`, and
-  `.ranger_unify_compat()` so they can be called directly after
+* Exported `xgboost_unify_compat()`, `lightgbm_unify_compat()`, and
+  `ranger_unify_compat()` so they can be called directly after
   `library(treeowen)` without the `:::` operator.
   These are the functions users should call to unify models before running
   `treeowen()`.
@@ -22,7 +55,7 @@
 
 ## New features
 
-* Added `.lightgbm_unify_compat()` — robust replacement for
+* Added `lightgbm_unify_compat()` — robust replacement for
   `treeshap::lightgbm.unify()`. Handles all known failure modes across
   lightgbm 3.x / 4.x and treeshap 0.3–0.4:
   - Three-level fallback: treeshap → `lgb.model.dt.tree()` → `dump_model()` JSON.
@@ -32,9 +65,9 @@
     index, string `"N<k>"/"L<k>"`), all resolved to row indices.
   - Feature names from Booster private field → `model$feature_name()` →
     `colnames(data)` fallback chain.
-  - Internal helper `.lgb_parse_dump_model()` for JSON tree dump parsing.
+  - Internal helper `lgb_parse_dump_model()` for JSON tree dump parsing.
 
-* Added `.ranger_unify_compat()` — robust replacement for
+* Added `ranger_unify_compat()` — robust replacement for
   `treeshap::ranger.unify()`. Handles all known failure modes across
   ranger 0.11–0.16+ and treeshap 0.3–0.4:
   - Three-level fallback: treeshap → patched `treeInfo()` +
@@ -47,12 +80,12 @@
     `leftChild`/`rightChild` columns (new); both formats parsed.
   - Leaf predictions as scalar, matrix, or list-of-vectors; probability for
     class 1 extracted in all cases.
-  - Internal helpers `.ranger_treeinfo_norm()` and
-    `.ranger_tree_from_forest()`.
+  - Internal helpers `ranger_treeinfo_norm()` and
+    `ranger_tree_from_forest()`.
   - Non-probability forest: warning (not error).
   - `write.forest = FALSE`: informative error.
 
-* Improved `.xgboost_unify_compat()`:
+* Improved `xgboost_unify_compat()`:
   - `xgb.model.dt.tree()` argument name: tries both `model=` and
     `xgb_model=` (xgboost 2.x rename).
   - treeshap bypassed entirely; model parsed directly from tree dump.

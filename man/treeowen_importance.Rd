@@ -89,6 +89,9 @@ via Owen Values. (In Review)
 }
 \examples{
 \dontrun{
+library(treeowen)
+library(xgboost)
+
 set.seed(42)
 feat_names <- paste0("F", rep(1:5, times = 5), "G", rep(1:5, each = 5))
 X <- as.data.frame(matrix(rnorm(50 * 25), 50, 25,
@@ -101,7 +104,7 @@ library(xgboost)
 xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label = Y),
                    nrounds = 50L, max_depth = 3L, eta = 0.1,
                    objective = "binary:logistic", verbose = 0L)
-unified <- .xgboost_unify_compat(xgb_mod, X)
+unified <- xgboost_unify_compat(xgb_mod, X)
 result  <- treeowen(unified, X, groups, method = "auto",
                     dp_progress = FALSE, verbose = FALSE)
 

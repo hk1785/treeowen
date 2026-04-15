@@ -1,5 +1,5 @@
-\name{.lightgbm_unify_compat}
-\alias{.lightgbm_unify_compat}
+\name{lightgbm_unify_compat}
+\alias{lightgbm_unify_compat}
 \title{Unify a LightGBM Model for Use with treeowen}
 \description{
 A robust replacement for \code{treeshap::lightgbm.unify()} that handles
@@ -17,7 +17,7 @@ changes (\code{split_gain}/\code{value}, \code{threshold}/\code{split_point},
 extraction from multiple fallback sources.
 }
 \usage{
-.lightgbm_unify_compat(model, data, recalculate = FALSE)
+lightgbm_unify_compat(model, data, recalculate = FALSE)
 }
 \arguments{
 \item{model}{A trained \code{lgb.Booster} object.}
@@ -29,16 +29,19 @@ extraction from multiple fallback sources.
 A \code{model_unified} object suitable for \code{\link{treeowen}}.
 }
 \seealso{
-\code{\link{treeowen}}, \code{\link{.xgboost_unify_compat}},
-\code{\link{.ranger_unify_compat}}
+\code{\link{treeowen}}, \code{\link{xgboost_unify_compat}},
+\code{\link{ranger_unify_compat}}
 }
 \examples{
 \dontrun{
+library(treeowen)
+library(lightgbm)
+
 library(lightgbm)
 ds      <- lgb.Dataset(as.matrix(X), label = Y)
 model   <- lgb.train(list(objective = "binary"), ds, nrounds = 100,
                      verbose = -1L)
-unified <- .lightgbm_unify_compat(model, X)
+unified <- lightgbm_unify_compat(model, X)
 result  <- treeowen(unified, X, groups)
 }
 }

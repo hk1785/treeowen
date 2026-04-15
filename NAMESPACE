@@ -24,10 +24,10 @@ export(clear_inner_enum_cache)
 
 # ── Model-unifier compatibility wrappers (exported) ─────────────────────────
 # These wrappers are exported so users can call them directly without :::
-# e.g.  unified <- .xgboost_unify_compat(model, X)
-export(.xgboost_unify_compat)
-export(.lightgbm_unify_compat)
-export(.ranger_unify_compat)
+# e.g.  unified <- xgboost_unify_compat(model, X)
+export(xgboost_unify_compat)
+export(lightgbm_unify_compat)
+export(ranger_unify_compat)
 
 # ── S3 print methods ─────────────────────────────────────────────────────────
 S3method(print, treeowen_result)

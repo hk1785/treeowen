@@ -60,12 +60,12 @@ install_github("hk1785/treeowen", force = TRUE)
 
 Before computing Owen values you must convert your trained model into a unified format that treeowen can read. Use the wrapper functions below **instead** of calling `treeshap::xgboost.unify()`, `treeshap::lightgbm.unify()`, or `treeshap::ranger.unify()` directly. The wrappers automatically handle all known version-compatibility problems across different releases of each library.
 
-### .xgboost_unify_compat(model, data)
+### xgboost_unify_compat(model, data)
 
 Converts a trained `xgb.Booster` to the unified format.
 
 ```r
-unified <- .xgboost_unify_compat(xgb_model, X)
+unified <- xgboost_unify_compat(xgb_model, X)
 ```
 
 Handled failure modes:
@@ -77,12 +77,12 @@ Handled failure modes:
 - `model$feature_names` may be NULL for models trained from unnamed matrices; falls back to `colnames(data)`.
 - treeshap::xgboost.unify() is bypassed entirely because it calls internal xgboost functions that have changed between versions.
 
-### .lightgbm_unify_compat(model, data)
+### lightgbm_unify_compat(model, data)
 
 Converts a trained `lgb.Booster` to the unified format.
 
 ```r
-unified <- .lightgbm_unify_compat(lgb_model, X)
+unified <- lightgbm_unify_compat(lgb_model, X)
 ```
 
 Handled failure modes:
@@ -94,12 +94,12 @@ Handled failure modes:
 - The best-round slot from `lgb.cv()` may be named `best_iter` or `best_iteration`; both are tried.
 - The `verbose` argument may need to be passed inside `params` (older lightgbm) or directly to `lgb.cv()` (newer); use `-1L` in both places to be safe.
 
-### .ranger_unify_compat(model, data)
+### ranger_unify_compat(model, data)
 
 Converts a trained `ranger` model to the unified format. The model must have been trained with `probability = TRUE`.
 
 ```r
-unified <- .ranger_unify_compat(ranger_model, X)
+unified <- ranger_unify_compat(ranger_model, X)
 ```
 
 Handled failure modes:
@@ -199,7 +199,7 @@ library(xgboost)
 model_xgb <- xgboost(xgb.DMatrix(as.matrix(X), label = Y),
                      nrounds = 100, max_depth = 3, eta = 0.1,
                      objective = "binary:logistic", verbose = 0)
-result_xgb <- treeowen(.xgboost_unify_compat(model_xgb, X), X, groups)
+result_xgb <- treeowen(xgboost_unify_compat(model_xgb, X), X, groups)
 print(result_xgb)
  
 # ── LightGBM ───────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ model_lgb <- lgb.train(
                  max_depth = 3L, num_leaves = 7L, verbose = -1L),
   data    = lgb.Dataset(as.matrix(X), label = Y),
   nrounds = 100L, verbose = -1L)
-result_lgb <- treeowen(.lightgbm_unify_compat(model_lgb, X), X, groups)
+result_lgb <- treeowen(lightgbm_unify_compat(model_lgb, X), X, groups)
 print(result_lgb)
  
 # ── Ranger ─────────────────────────────────────────────────────────────────
@@ -217,7 +217,7 @@ library(ranger)
 model_rng <- ranger(.y ~ ., num.trees = 100L, max.depth = 3L,
                     probability = TRUE, keep.inbag = TRUE, seed = 42L,
                     data = cbind(X, .y = factor(Y, c(0,1), c("neg","pos"))))
-result_rng <- treeowen(.ranger_unify_compat(model_rng, X), X, groups)
+result_rng <- treeowen(ranger_unify_compat(model_rng, X), X, groups)
 print(result_rng)
 ```
 
@@ -246,6 +246,7 @@ A list with `feature` (data frame with columns `feature` and `importance`), `gro
 ### Example
 
 ```r
+# result_xgb is produced by treeowen() — see Section 2 example above
 imp <- treeowen_importance(result_xgb, type = "both", sort = TRUE)
 print(imp$group)
 ```
@@ -280,6 +281,11 @@ Returns a `ggplot` object when `level = "feature"` or `"group"`, or a `treeowen_
 ### Example
 
 ```r
+library(ggplot2)
+library(ggbeeswarm)  # for geom_quasirandom
+library(patchwork)   # required for level = "both"
+
+# result_xgb is produced by treeowen() — see Section 2 example above
 p   <- treeowen_beeswarm(result_xgb, level = "feature", top_n_feature = 15L)
 out <- treeowen_beeswarm(result_xgb, level = "both", top_n_feature = 10L, top_n_group = 5L)
 print(out$combined)
@@ -315,6 +321,11 @@ treeowen_hierarchical_beeswarm(
 ### Example
 
 ```r
+library(ggplot2)
+library(ggbeeswarm)  # required
+library(patchwork)   # required
+
+# result_xgb is produced by treeowen() — see Section 2 example above
 imp   <- treeowen_importance(result_xgb, type = "both")
 pages <- treeowen_hierarchical_beeswarm(result_xgb, imp, top_n_group = 10L, n_col = 2L,
                                          save_path = "output/", lname = "xgboost")

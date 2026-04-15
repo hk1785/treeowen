@@ -47,7 +47,7 @@ model_xgb <- xgboost(dm, nrounds = 100, max_depth = 3, eta = 0.1,
                      objective = "binary:logistic", verbose = 0)
 
 # Unify (robust wrapper handles all xgboost version differences)
-unified_xgb <- .xgboost_unify_compat(model_xgb, X)
+unified_xgb <- xgboost_unify_compat(model_xgb, X)
 
 # Compute Owen values
 result_xgb <- treeowen(
@@ -113,7 +113,7 @@ model_lgb <- lgb.train(
 )
 
 # Unify (robust wrapper: treeshap → lgb.model.dt.tree → dump_model fallback)
-unified_lgb <- .lightgbm_unify_compat(model_lgb, X)
+unified_lgb <- lightgbm_unify_compat(model_lgb, X)
 
 # Compute Owen values
 result_lgb <- treeowen(
@@ -178,7 +178,7 @@ model_rng <- ranger(
 
 # Unify (robust wrapper: treeshap → treeInfo patch → forest fallback)
 # Pass X without the outcome column
-unified_rng <- .ranger_unify_compat(model_rng, X)
+unified_rng <- ranger_unify_compat(model_rng, X)
 
 # Compute Owen values
 result_rng <- treeowen(

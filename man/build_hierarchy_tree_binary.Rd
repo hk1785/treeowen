@@ -48,6 +48,9 @@ via Owen Values. (In Review)
 }
 \examples{
 \dontrun{
+library(treeowen)
+library(xgboost)
+
 ## Custom hierarchy for 5 groups: ((G1,G2), (G3,(G4,G5)))
 hier <- list(
  left = list(left = 1L, right = 2L),
@@ -69,7 +72,7 @@ library(xgboost); library(treeshap)
 xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label=Y),
  nrounds = 50L, max_depth = 3L, eta = 0.1,
  objective = "binary:logistic", verbose = 0L)
-unified <- .xgboost_unify_compat(xgb_mod, X)
+unified <- xgboost_unify_compat(xgb_mod, X)
 
 result_custom <- treeowen(unified, X, groups, method="exact",
  hierarchy = tree,

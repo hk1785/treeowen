@@ -989,7 +989,7 @@ clear_inner_enum_cache <- function() {
 #           argument "model" was renamed to "xgb_model" in some builds.
 #
 # Users should call this wrapper instead of treeshap::xgboost.unify():
-#   unified <- .xgboost_unify_compat(xgb_mod, X)
+#   unified <- xgboost_unify_compat(xgb_mod, X)
 # ──────────────────────────────────────────────────────────────────────────────
 #' Unify an XGBoost model for use with treeowen
 #'
@@ -1007,7 +1007,7 @@ clear_inner_enum_cache <- function() {
 #'   Default \code{FALSE}.
 #' @return A \code{model_unified} object suitable for \code{\link{treeowen}}.
 #' @export
-.xgboost_unify_compat <- function(model, data, recalculate = FALSE) {
+xgboost_unify_compat <- function(model, data, recalculate = FALSE) {
   if (!requireNamespace("xgboost",    quietly = TRUE))
     stop('Package "xgboost" needed. Please install it.', call. = FALSE)
   if (!requireNamespace("data.table", quietly = TRUE))
@@ -1131,7 +1131,7 @@ clear_inner_enum_cache <- function() {
 #' @param recalculate Logical. Default \code{FALSE}.
 #' @return A \code{model_unified} object suitable for \code{\link{treeowen}}.
 #' @export
-.lightgbm_unify_compat <- function(model, data, recalculate = FALSE) {
+lightgbm_unify_compat <- function(model, data, recalculate = FALSE) {
   if (!requireNamespace("lightgbm", quietly = TRUE))
     stop('Package "lightgbm" needed. Please install it.', call. = FALSE)
 
@@ -1175,7 +1175,7 @@ clear_inner_enum_cache <- function() {
       dm  <- model$dump_model()
       ti  <- dm[["tree_info"]]
       if (is.null(ti)) stop("tree_info absent")
-      .lgb_parse_dump_model(ti)
+      lgb_parse_dump_model(ti)
     }, error = function(e) {
       stop(sprintf(
         "lightgbm: all tree-dump methods failed.\n  lgb.model.dt.tree(): unavailable\n  dump_model(): %s",
@@ -1351,7 +1351,7 @@ clear_inner_enum_cache <- function() {
 }
 
 # Internal: parse dump_model()$tree_info into a flat data.frame  [LGB-2 fallback]
-.lgb_parse_dump_model <- function(trees_info) {
+lgb_parse_dump_model <- function(trees_info) {
   rows <- list()
   parse_node <- function(node, tree_id) {
     if (is.null(node)) return(invisible(NULL))
@@ -1440,7 +1440,7 @@ clear_inner_enum_cache <- function() {
 #' @param recalculate Logical. Default \code{FALSE}.
 #' @return A \code{model_unified} object suitable for \code{\link{treeowen}}.
 #' @export
-.ranger_unify_compat <- function(model, data, recalculate = FALSE) {
+ranger_unify_compat <- function(model, data, recalculate = FALSE) {
   if (!requireNamespace("ranger", quietly = TRUE))
     stop('Package "ranger" needed. Please install it.', call. = FALSE)
 
@@ -1450,7 +1450,7 @@ clear_inner_enum_cache <- function() {
   is_prob <- isTRUE(model$treetype %in% c("Probability estimation", "probability"))
   if (!is_prob)
     warning(paste0(
-      "[.ranger_unify_compat] ranger model was not trained with probability=TRUE. ",
+      "[ranger_unify_compat] ranger model was not trained with probability=TRUE. ",
       "Leaf predictions will be class labels, not probabilities. ",
       "Re-train with probability=TRUE and keep.inbag=TRUE for reliable results."
     ), call. = FALSE)
@@ -1541,14 +1541,14 @@ clear_inner_enum_cache <- function() {
 
   for (ti in seq_len(n_trees)) {
     ti_df <- tryCatch(
-      .ranger_treeinfo_norm(ranger::treeInfo(model, tree = ti), feature_names),
+      ranger_treeinfo_norm(ranger::treeInfo(model, tree = ti), feature_names),
       error = function(e) NULL
     )
     if (is.null(ti_df)) {
       ti_df <- tryCatch(
-        .ranger_tree_from_forest(model, ti, feature_names),
+        ranger_tree_from_forest(model, ti, feature_names),
         error = function(e2) stop(sprintf(
-          "[.ranger_unify_compat] tree %d: treeInfo() and forest fallback both failed.\n  treeInfo error: %s",
+          "[ranger_unify_compat] tree %d: treeInfo() and forest fallback both failed.\n  treeInfo error: %s",
           ti, conditionMessage(e2)))
       )
     }
@@ -1603,7 +1603,7 @@ clear_inner_enum_cache <- function() {
 
 # Internal: normalise a single treeInfo() data.frame to standard columns
 # Returns: data.frame with cols: nodeid, feature, splitval, terminal, leftchild, rightchild, prediction
-.ranger_treeinfo_norm <- function(df, feature_names) {
+ranger_treeinfo_norm <- function(df, feature_names) {
   df   <- as.data.frame(df, stringsAsFactors = FALSE)
   nms  <- tolower(gsub("[._]", "", colnames(df)))   # flatten: nodeID → nodeid etc.
   colnames(df) <- nms
@@ -1693,7 +1693,7 @@ clear_inner_enum_cache <- function() {
 
 # Internal: build treeInfo-like data.frame from model$forest list
 # (fallback when ranger::treeInfo() is unavailable)  [RNG-4 fallback]
-.ranger_tree_from_forest <- function(model, tree_idx, feature_names) {
+ranger_tree_from_forest <- function(model, tree_idx, feature_names) {
   forest <- model$forest
   if (is.null(forest))
     stop("model$forest is NULL; re-train with write.forest=TRUE")

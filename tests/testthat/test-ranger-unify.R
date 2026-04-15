@@ -1,6 +1,6 @@
 # tests/testthat/test-ranger-unify.R
 #
-# Unit tests for .ranger_unify_compat()
+# Unit tests for ranger_unify_compat()
 #
 # Covers failure modes:
 #   [RNG-1]  treeInfo() "pred.1" vs "prediction" column name
@@ -39,7 +39,7 @@ skip_if_not_rng <- function() {
 test_that("[RNG] output has correct class and structure", {
   skip_if_not_rng()
   fx <- .make_rng_fixture()
-  u  <- .ranger_unify_compat(fx$model, fx$X)
+  u  <- ranger_unify_compat(fx$model, fx$X)
 
   expect_s3_class(u, "model_unified")
   expect_true(is.data.frame(u$model))
@@ -59,14 +59,14 @@ test_that("[RNG] output has correct class and structure", {
 test_that("[RNG] feature_names match training data columns", {
   skip_if_not_rng()
   fx <- .make_rng_fixture()
-  u  <- .ranger_unify_compat(fx$model, fx$X)
+  u  <- ranger_unify_compat(fx$model, fx$X)
   expect_equal(sort(u$feature_names), sort(fx$feature_names))
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TEST 3 [RNG-1]: .ranger_treeinfo_norm() handles "pred.1" → "prediction"
+# TEST 3 [RNG-1]: ranger_treeinfo_norm() handles "pred.1" → "prediction"
 # ──────────────────────────────────────────────────────────────────────────────
-test_that("[RNG-1] .ranger_treeinfo_norm() normalises 'pred.1' to 'prediction'", {
+test_that("[RNG-1] ranger_treeinfo_norm() normalises 'pred.1' to 'prediction'", {
   skip_if_not_rng()
   fx <- .make_rng_fixture()
 
@@ -83,7 +83,7 @@ test_that("[RNG-1] .ranger_treeinfo_norm() normalises 'pred.1' to 'prediction'",
     expect_true("pred.1" %in% colnames(ti_df))
 
     # Apply the normalization logic
-    norm <- .ranger_treeinfo_norm(ti_df, fx$feature_names)
+    norm <- ranger_treeinfo_norm(ti_df, fx$feature_names)
     expect_true(is.data.frame(norm))
     expect_true("prediction" %in% colnames(norm))
     expect_true(nrow(norm) > 0L)
@@ -93,9 +93,9 @@ test_that("[RNG-1] .ranger_treeinfo_norm() normalises 'pred.1' to 'prediction'",
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TEST 4 [RNG-3]: .ranger_treeinfo_norm() handles column name variations
+# TEST 4 [RNG-3]: ranger_treeinfo_norm() handles column name variations
 # ──────────────────────────────────────────────────────────────────────────────
-test_that("[RNG-3] .ranger_treeinfo_norm() handles 'node' alias for 'nodeID'", {
+test_that("[RNG-3] ranger_treeinfo_norm() handles 'node' alias for 'nodeID'", {
   skip_if_not_rng()
   fx <- .make_rng_fixture()
   ti_raw <- tryCatch(ranger::treeInfo(fx$model, tree = 1L), error = function(e) NULL)
@@ -105,7 +105,7 @@ test_that("[RNG-3] .ranger_treeinfo_norm() handles 'node' alias for 'nodeID'", {
   # Rename nodeID → node to simulate a version variation
   if ("nodeID" %in% colnames(ti_df)) {
     colnames(ti_df)[colnames(ti_df) == "nodeID"] <- "node"
-    norm <- .ranger_treeinfo_norm(ti_df, fx$feature_names)
+    norm <- ranger_treeinfo_norm(ti_df, fx$feature_names)
     expect_true(is.data.frame(norm))
     expect_true("nodeid" %in% colnames(norm) || nrow(norm) > 0L)
   } else {
@@ -113,7 +113,7 @@ test_that("[RNG-3] .ranger_treeinfo_norm() handles 'node' alias for 'nodeID'", {
   }
 })
 
-test_that("[RNG-3] .ranger_treeinfo_norm() handles 'splitVal' alias for 'splitval'", {
+test_that("[RNG-3] ranger_treeinfo_norm() handles 'splitVal' alias for 'splitval'", {
   skip_if_not_rng()
   fx <- .make_rng_fixture()
   ti_raw <- tryCatch(ranger::treeInfo(fx$model, tree = 1L), error = function(e) NULL)
@@ -124,7 +124,7 @@ test_that("[RNG-3] .ranger_treeinfo_norm() handles 'splitVal' alias for 'splitva
     # Rename to splitVal
     idx <- which(tolower(colnames(ti_df)) == "splitval")[1]
     colnames(ti_df)[idx] <- "splitVal"
-    norm <- .ranger_treeinfo_norm(ti_df, fx$feature_names)
+    norm <- ranger_treeinfo_norm(ti_df, fx$feature_names)
     expect_true(is.data.frame(norm))
     expect_true("splitval" %in% colnames(norm))
   } else {
@@ -133,14 +133,14 @@ test_that("[RNG-3] .ranger_treeinfo_norm() handles 'splitVal' alias for 'splitva
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TEST 5 [RNG-4]: .ranger_tree_from_forest() works with forest internals
+# TEST 5 [RNG-4]: ranger_tree_from_forest() works with forest internals
 # ──────────────────────────────────────────────────────────────────────────────
-test_that("[RNG-4] .ranger_tree_from_forest() produces valid data.frame", {
+test_that("[RNG-4] ranger_tree_from_forest() produces valid data.frame", {
   skip_if_not_rng()
   fx <- .make_rng_fixture()
 
   df <- tryCatch(
-    .ranger_tree_from_forest(fx$model, tree_idx = 1L, fx$feature_names),
+    ranger_tree_from_forest(fx$model, tree_idx = 1L, fx$feature_names),
     error = function(e) NULL
   )
 
@@ -167,7 +167,7 @@ test_that("[RNG-4] .ranger_tree_from_forest() produces valid data.frame", {
 test_that("[RNG-5] leaf predictions are in [0, 1] for probability forest", {
   skip_if_not_rng()
   fx <- .make_rng_fixture(probability = TRUE)
-  u  <- .ranger_unify_compat(fx$model, fx$X)
+  u  <- ranger_unify_compat(fx$model, fx$X)
   m  <- u$model
 
   leaf_preds <- m$Prediction[is.na(m$Feature)]
@@ -183,14 +183,14 @@ test_that("[RNG-5] leaf predictions are in [0, 1] for probability forest", {
 # ──────────────────────────────────────────────────────────────────────────────
 # TEST 7 [RNG-6]: model$forest NULL raises informative error
 # ──────────────────────────────────────────────────────────────────────────────
-test_that("[RNG-6] model$forest NULL raises error in .ranger_tree_from_forest()", {
+test_that("[RNG-6] model$forest NULL raises error in ranger_tree_from_forest()", {
   # Simulate a model without a forest
   fake_model <- list(forest = NULL, num.trees = 5L,
                      treetype = "Probability estimation")
   class(fake_model) <- "ranger"
 
   expect_error(
-    .ranger_tree_from_forest(fake_model, tree_idx = 1L, feature_names = "f1"),
+    ranger_tree_from_forest(fake_model, tree_idx = 1L, feature_names = "f1"),
     regexp = "write\\.forest"
   )
 })
@@ -205,7 +205,7 @@ test_that("[RNG-8] non-probability forest gives warning not an error", {
   if (is.null(fx)) skip("Could not train non-probability ranger model")
 
   expect_warning(
-    .ranger_unify_compat(fx$model, fx$X),
+    ranger_unify_compat(fx$model, fx$X),
     regexp = "probability=TRUE"
   )
 })
@@ -216,7 +216,7 @@ test_that("[RNG-8] non-probability forest gives warning not an error", {
 test_that("[RNG-7] keep.inbag=FALSE model still unifies successfully", {
   skip_if_not_rng()
   fx <- .make_rng_fixture(keep_inbag = FALSE)
-  u  <- .ranger_unify_compat(fx$model, fx$X)
+  u  <- ranger_unify_compat(fx$model, fx$X)
   expect_s3_class(u, "model_unified")
   expect_true(nrow(u$model) > 0L)
 })
@@ -227,7 +227,7 @@ test_that("[RNG-7] keep.inbag=FALSE model still unifies successfully", {
 test_that("[RNG] model_unified passes .prepare_dp_model without error", {
   skip_if_not_rng()
   fx <- .make_rng_fixture()
-  u  <- .ranger_unify_compat(fx$model, fx$X)
+  u  <- ranger_unify_compat(fx$model, fx$X)
   dp <- .prepare_dp_model(u, fx$feature_names)
   expect_true(is.list(dp))
   expect_true(length(dp$trees) > 0L)
@@ -239,8 +239,8 @@ test_that("[RNG] model_unified passes .prepare_dp_model without error", {
 test_that("[RNG] matrix and data.frame inputs both produce valid output", {
   skip_if_not_rng()
   fx <- .make_rng_fixture()
-  u_df  <- .ranger_unify_compat(fx$model, fx$X)
-  u_mat <- .ranger_unify_compat(fx$model, as.matrix(fx$X))
+  u_df  <- ranger_unify_compat(fx$model, fx$X)
+  u_mat <- ranger_unify_compat(fx$model, as.matrix(fx$X))
   expect_s3_class(u_df,  "model_unified")
   expect_s3_class(u_mat, "model_unified")
   expect_equal(u_df$feature_names, u_mat$feature_names)

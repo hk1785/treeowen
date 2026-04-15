@@ -21,6 +21,9 @@ via Owen Values. (In Review)
 \seealso{\code{\link{treeowen_importance}}}
 \examples{
 \dontrun{
+library(treeowen)
+library(xgboost)
+
 imp <- treeowen_importance(result, type = "both")
 print(imp)
 print(imp, digits = 6)

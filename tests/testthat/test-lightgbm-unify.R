@@ -1,6 +1,6 @@
 # tests/testthat/test-lightgbm-unify.R
 #
-# Unit tests for .lightgbm_unify_compat()
+# Unit tests for lightgbm_unify_compat()
 #
 # Covers failure modes:
 #   [LGB-1]  treeshap::lightgbm.unify() bypass / fallback
@@ -40,7 +40,7 @@ skip_if_not_lgb <- function() {
 test_that("[LGB] output has correct class and structure", {
   skip_if_not_lgb()
   fx <- .make_lgb_fixture()
-  u  <- .lightgbm_unify_compat(fx$model, fx$X)
+  u  <- lightgbm_unify_compat(fx$model, fx$X)
 
   expect_s3_class(u, "model_unified")
   expect_true(is.data.frame(u$model))
@@ -60,7 +60,7 @@ test_that("[LGB] output has correct class and structure", {
 test_that("[LGB] feature_names match training data columns", {
   skip_if_not_lgb()
   fx <- .make_lgb_fixture()
-  u  <- .lightgbm_unify_compat(fx$model, fx$X)
+  u  <- lightgbm_unify_compat(fx$model, fx$X)
   expect_equal(sort(u$feature_names), sort(fx$feature_names))
 })
 
@@ -255,7 +255,7 @@ test_that("[LGB-7] lgb.cv() accepts verbose as direct argument", {
 test_that("[LGB] internal nodes have NA Prediction; leaves have numeric Prediction", {
   skip_if_not_lgb()
   fx <- .make_lgb_fixture()
-  u  <- .lightgbm_unify_compat(fx$model, fx$X)
+  u  <- lightgbm_unify_compat(fx$model, fx$X)
   m  <- u$model
 
   leaf     <- is.na(m$Feature)
@@ -277,7 +277,7 @@ test_that("[LGB] internal nodes have NA Prediction; leaves have numeric Predicti
 test_that("[LGB] model_unified passes .prepare_dp_model without error", {
   skip_if_not_lgb()
   fx <- .make_lgb_fixture()
-  u  <- .lightgbm_unify_compat(fx$model, fx$X)
+  u  <- lightgbm_unify_compat(fx$model, fx$X)
   dp <- .prepare_dp_model(u, colnames(fx$X))
   expect_true(is.list(dp))
   expect_true(length(dp$trees) > 0L)
@@ -289,17 +289,17 @@ test_that("[LGB] model_unified passes .prepare_dp_model without error", {
 test_that("[LGB] matrix and data.frame inputs both produce valid output", {
   skip_if_not_lgb()
   fx <- .make_lgb_fixture()
-  u_mat <- .lightgbm_unify_compat(fx$model, fx$X)
-  u_df  <- .lightgbm_unify_compat(fx$model, as.data.frame(fx$X))
+  u_mat <- lightgbm_unify_compat(fx$model, fx$X)
+  u_df  <- lightgbm_unify_compat(fx$model, as.data.frame(fx$X))
   expect_s3_class(u_mat, "model_unified")
   expect_s3_class(u_df,  "model_unified")
   expect_equal(u_mat$feature_names, u_df$feature_names)
 })
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TEST 12: .lgb_parse_dump_model() produces a valid data.frame
+# TEST 12: lgb_parse_dump_model() produces a valid data.frame
 # ──────────────────────────────────────────────────────────────────────────────
-test_that("[LGB-2] .lgb_parse_dump_model() returns a non-empty data.frame", {
+test_that("[LGB-2] lgb_parse_dump_model() returns a non-empty data.frame", {
   skip_if_not_lgb()
   fx <- .make_lgb_fixture()
 
@@ -308,7 +308,7 @@ test_that("[LGB-2] .lgb_parse_dump_model() returns a non-empty data.frame", {
     skip("dump_model() not available in this lightgbm version")
   }
 
-  df <- .lgb_parse_dump_model(dm_raw$tree_info)
+  df <- lgb_parse_dump_model(dm_raw$tree_info)
   expect_true(is.data.frame(df))
   expect_true(nrow(df) > 0L)
   expect_true("tree_index" %in% colnames(df))

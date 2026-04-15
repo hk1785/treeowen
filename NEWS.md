@@ -1,3 +1,13 @@
+# treeowen 0.1.3
+
+## Bug fix
+
+* Exported `.xgboost_unify_compat()`, `.lightgbm_unify_compat()`, and
+  `.ranger_unify_compat()` so they can be called directly after
+  `library(treeowen)` without the `:::` operator.
+  These are the functions users should call to unify models before running
+  `treeowen()`.
+
 # treeowen 0.1.2
 
 ## Bug fix

@@ -991,6 +991,22 @@ clear_inner_enum_cache <- function() {
 # Users should call this wrapper instead of treeshap::xgboost.unify():
 #   unified <- .xgboost_unify_compat(xgb_mod, X)
 # ──────────────────────────────────────────────────────────────────────────────
+#' Unify an XGBoost model for use with treeowen
+#'
+#' A robust replacement for \code{treeshap::xgboost.unify()} that handles
+#' all known version-compatibility issues across xgboost 1.6 to 2.x and
+#' treeshap 0.3 to 0.4. Builds the unified model object directly from
+#' \code{xgb.model.dt.tree()}, bypassing treeshap internals entirely.
+#'
+#' @param model A trained \code{xgb.Booster} object.
+#' @param data A data frame or matrix of the training features (no outcome
+#'   column). Used to resolve feature names when \code{model$feature_names}
+#'   is NULL.
+#' @param recalculate Logical. If \code{TRUE} and treeshap is available,
+#'   calls \code{treeshap::set_reference_dataset()} after unification.
+#'   Default \code{FALSE}.
+#' @return A \code{model_unified} object suitable for \code{\link{treeowen}}.
+#' @export
 .xgboost_unify_compat <- function(model, data, recalculate = FALSE) {
   if (!requireNamespace("xgboost",    quietly = TRUE))
     stop('Package "xgboost" needed. Please install it.', call. = FALSE)
@@ -1103,6 +1119,18 @@ clear_inner_enum_cache <- function() {
 # model_unified directly from lgb.model.dt.tree() output; if that also fails,
 # fall back to model$dump_model() JSON tree parsing.
 # ──────────────────────────────────────────────────────────────────────────────
+#' Unify a LightGBM model for use with treeowen
+#'
+#' A robust replacement for \code{treeshap::lightgbm.unify()} that handles
+#' all known version-compatibility issues across lightgbm 3.x / 4.x and
+#' treeshap 0.3 to 0.4. Falls back through three strategies: treeshap,
+#' \code{lgb.model.dt.tree()}, and \code{model$dump_model()} JSON parsing.
+#'
+#' @param model A trained \code{lgb.Booster} object.
+#' @param data A data frame or matrix of the training features.
+#' @param recalculate Logical. Default \code{FALSE}.
+#' @return A \code{model_unified} object suitable for \code{\link{treeowen}}.
+#' @export
 .lightgbm_unify_compat <- function(model, data, recalculate = FALSE) {
   if (!requireNamespace("lightgbm", quietly = TRUE))
     stop('Package "lightgbm" needed. Please install it.', call. = FALSE)
@@ -1396,6 +1424,22 @@ clear_inner_enum_cache <- function() {
 #      (the internal treeshap function) directly.
 #   3. If that also fails, build model_unified from forest internals manually.
 # ──────────────────────────────────────────────────────────────────────────────
+#' Unify a Ranger model for use with treeowen
+#'
+#' A robust replacement for \code{treeshap::ranger.unify()} that handles
+#' all known version-compatibility issues across ranger 0.11 to 0.16+ and
+#' treeshap 0.3 to 0.4. Falls back through three strategies: treeshap,
+#' patched \code{treeInfo()} with \code{ranger_unify.common()}, and direct
+#' \code{model$forest} parsing.
+#'
+#' The model must be trained with \code{probability = TRUE}.
+#'
+#' @param model A trained \code{ranger} object (\code{probability = TRUE}).
+#' @param data A data frame or matrix of the training features (no outcome
+#'   column).
+#' @param recalculate Logical. Default \code{FALSE}.
+#' @return A \code{model_unified} object suitable for \code{\link{treeowen}}.
+#' @export
 .ranger_unify_compat <- function(model, data, recalculate = FALSE) {
   if (!requireNamespace("ranger", quietly = TRUE))
     stop('Package "ranger" needed. Please install it.', call. = FALSE)

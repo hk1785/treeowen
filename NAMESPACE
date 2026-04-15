@@ -22,10 +22,12 @@ export(build_hierarchy_tree_binary)
 export(build_hierarchy_tree_from_layers)
 export(clear_inner_enum_cache)
 
-# ── Model-unifier compatibility wrappers ─────────────────────────────────────
-# Internal (.xxx) but accessible via ::: for power users; not part of the
-# public API surface.  Only .xgboost_unify_compat is mentioned in the docs.
-# .lightgbm_unify_compat and .ranger_unify_compat follow the same convention.
+# ── Model-unifier compatibility wrappers (exported) ─────────────────────────
+# These wrappers are exported so users can call them directly without :::
+# e.g.  unified <- .xgboost_unify_compat(model, X)
+export(.xgboost_unify_compat)
+export(.lightgbm_unify_compat)
+export(.ranger_unify_compat)
 
 # ── S3 print methods ─────────────────────────────────────────────────────────
 S3method(print, treeowen_result)

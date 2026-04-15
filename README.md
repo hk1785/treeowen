@@ -2,7 +2,7 @@
 
 Title: Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values
 
-Version: 0.1.0
+Version: 0.1.3
 
 Date: 2026-04-15
 
@@ -18,7 +18,7 @@ License: MIT
 
 ## Reference
 
-* Koh H. _Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values._ (_In Review_)
+* Koh H. Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values. (_In Review_)
 
 ## Troubleshooting Tips
 
@@ -182,16 +182,43 @@ For every observation, the sum of its Owen values equals its prediction minus th
 
 ```r
 library(treeowen)
-
-# Train XGBoost
-dm    <- xgb.DMatrix(as.matrix(X), label = Y)
-model <- xgboost(dm, nrounds = 100, objective = "binary:logistic", verbose = 0)
-
-# Unify and compute Owen values
-unified <- .xgboost_unify_compat(model, X)
-groups  <- list(GroupA = c("f1","f2","f3"), GroupB = c("f4","f5"))
-result  <- treeowen(unified, X, groups, method = "auto")
-print(result)
+ 
+# ── Synthetic data ─────────────────────────────────────────────────────────
+set.seed(42)
+feat_names <- paste0("F", rep(1:5, times = 5), "G", rep(1:5, each = 5))
+X <- as.data.frame(matrix(rnorm(50 * 25), 50, 25,
+                           dimnames = list(NULL, feat_names)))
+Y <- as.integer(0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2 > 0)
+ 
+# Feature partition: 5 groups of 5 features each
+groups <- setNames(lapply(1:5, function(k) paste0("F", 1:5, "G", k)),
+                   paste0("G", 1:5))
+ 
+# ── XGBoost ────────────────────────────────────────────────────────────────
+library(xgboost)
+model_xgb <- xgboost(xgb.DMatrix(as.matrix(X), label = Y),
+                     nrounds = 100, max_depth = 3, eta = 0.1,
+                     objective = "binary:logistic", verbose = 0)
+result_xgb <- treeowen(.xgboost_unify_compat(model_xgb, X), X, groups)
+print(result_xgb)
+ 
+# ── LightGBM ───────────────────────────────────────────────────────────────
+library(lightgbm)
+model_lgb <- lgb.train(
+  params  = list(objective = "binary", learning_rate = 0.1,
+                 max_depth = 3L, num_leaves = 7L, verbose = -1L),
+  data    = lgb.Dataset(as.matrix(X), label = Y),
+  nrounds = 100L, verbose = -1L)
+result_lgb <- treeowen(.lightgbm_unify_compat(model_lgb, X), X, groups)
+print(result_lgb)
+ 
+# ── Ranger ─────────────────────────────────────────────────────────────────
+library(ranger)
+model_rng <- ranger(.y ~ ., num.trees = 100L, max.depth = 3L,
+                    probability = TRUE, keep.inbag = TRUE, seed = 42L,
+                    data = cbind(X, .y = factor(Y, c(0,1), c("neg","pos"))))
+result_rng <- treeowen(.ranger_unify_compat(model_rng, X), X, groups)
+print(result_rng)
 ```
 
 ---
@@ -219,7 +246,7 @@ A list with `feature` (data frame with columns `feature` and `importance`), `gro
 ### Example
 
 ```r
-imp <- treeowen_importance(result, type = "both", sort = TRUE)
+imp <- treeowen_importance(result_xgb, type = "both", sort = TRUE)
 print(imp$group)
 ```
 
@@ -253,8 +280,8 @@ Returns a `ggplot` object when `level = "feature"` or `"group"`, or a `treeowen_
 ### Example
 
 ```r
-p   <- treeowen_beeswarm(result, level = "feature", top_n_feature = 15L)
-out <- treeowen_beeswarm(result, level = "both", top_n_feature = 10L, top_n_group = 5L)
+p   <- treeowen_beeswarm(result_xgb, level = "feature", top_n_feature = 15L)
+out <- treeowen_beeswarm(result_xgb, level = "both", top_n_feature = 10L, top_n_group = 5L)
 print(out$combined)
 ```
 
@@ -288,8 +315,8 @@ treeowen_hierarchical_beeswarm(
 ### Example
 
 ```r
-imp   <- treeowen_importance(result, type = "both")
-pages <- treeowen_hierarchical_beeswarm(result, imp, top_n_group = 10L, n_col = 2L,
+imp   <- treeowen_importance(result_xgb, type = "both")
+pages <- treeowen_hierarchical_beeswarm(result_xgb, imp, top_n_group = 10L, n_col = 2L,
                                          save_path = "output/", lname = "xgboost")
 print(pages[[1]])
 ```
@@ -302,7 +329,7 @@ Gut microbiome relative abundances from 219 cancer immunotherapy patients across
 
 ```r
 data(immuno)
-# immuno$X      — 219 x 953 matrix of relative abundances
-# immuno$Y      — numeric vector of length 219
-# immuno$groups — named list mapping genus names to species feature names
+immuno$X      # 219 x 953 matrix of relative abundances
+immuno$Y      # numeric vector of length 219
+immuno$groups # named list mapping genus names to species feature names
 ```

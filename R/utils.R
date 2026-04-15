@@ -33,9 +33,10 @@
 # confirm C availability (e.g. during R CMD check without compiled code).
 .try_load_cpp <- function() {
   if (.CPP_LOADED) return(.CPP_AVAILABLE)
-  # Probe the sentinel registered by useDynLib
+  # R_useDynamicSymbols(FALSE) requires the exact registered name.
+  # CallEntries registers "_treeowen_treeowen_ping", not "treeowen_ping".
   ok <- tryCatch({
-    .Call("treeowen_ping", PACKAGE = "treeowen")
+    .Call("_treeowen_treeowen_ping", PACKAGE = "treeowen")
     TRUE
   }, error = function(e) FALSE)
   .CPP_LOADED    <<- TRUE

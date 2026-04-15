@@ -1,3 +1,21 @@
+# treeowen 0.2.1
+
+## Bug fix (cpp=FALSE)
+
+* Root cause identified and fixed: `.onLoad()` and `.try_load_cpp()`
+  were calling `.Call("treeowen_ping", PACKAGE = pkgname)`, but
+  `R_useDynamicSymbols(dll, FALSE)` is set in `R_init_treeowen()`,
+  which means **only names explicitly listed in `CallEntries`** are
+  reachable via `.Call()`.  The `CallEntries` table registers the
+  symbol as `"_treeowen_treeowen_ping"` (with the `_treeowen_` prefix
+  that Rcpp adds), not as the bare `"treeowen_ping"`.  The mismatch
+  caused the ping call to fail silently, setting `cpp=FALSE` every
+  time the package was loaded.
+
+  Fix: both `.onLoad()` and `.try_load_cpp()` now call
+  `.Call("_treeowen_treeowen_ping", PACKAGE = pkgname)`, which exactly
+  matches the registered name.
+
 # treeowen 0.2.0
 
 ## Bug fixes

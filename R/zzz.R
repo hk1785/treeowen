@@ -53,7 +53,10 @@ TREEOWEN_EXACT_ENUM_K_MAX <- 30L   # C++ d_minus < 30 제한
 # .Call() on a registered name is the correct test.
 .onLoad <- function(libname, pkgname) {
   ok <- tryCatch({
-    .Call("treeowen_ping", PACKAGE = pkgname)
+    # R_useDynamicSymbols(FALSE) is set, so we must use the exact registered
+    # name from CallEntries: "_treeowen_treeowen_ping".
+    # The plain "treeowen_ping" is NOT registered and will always fail.
+    .Call("_treeowen_treeowen_ping", PACKAGE = pkgname)
     TRUE
   }, error = function(e) FALSE)
   .CPP_LOADED    <<- TRUE

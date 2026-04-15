@@ -527,7 +527,8 @@ data(immuno)
 
 ### Format
 Loading `data(immuno)` places two objects in the workspace:
-* _immuno_ - A numeric data frame with 219 rows (patients) and 190 columns (microbial features: species).
+* _X_ - A numeric data frame with 219 rows (patients) and 190 columns (microbial features: species).
+* _Y_ - A numeric vector for class labels: 0 for non-responder (NR) and 1 for responder (R).
 * _groups_ - A named list with 18 elements. Each element is a character vector of species column names belonging to that genus (e.g., `"Akkermansia"`, `"Bacteroides"`). Together, `groups` forms a complete, non-overlapping partition of all 190 columns of `immuno`, suitable for direct use as the `groups` argument of `treeowen`.
 
 ### References
@@ -535,19 +536,20 @@ Loading `data(immuno)` places two objects in the workspace:
 
 ### Example
 ```r
+library(treeowen)
+
 data(immuno)
 
 # Dimensions
-dim(immuno)          # 219 x 190
-length(groups)       # 18 genera
-names(groups)[1:5]   # first five genus names
+dim(immuno$X)          # 219 x 190
+length(immuno$groups)       # 18 genera
+names(immuno$groups)[1:5]   # first five genus names
 
-# Response labels from row names
-resp_labels <- sub(".*_(R|NR)$", "\\1", rownames(immuno))
-table(resp_labels)   # 65 responders (R) and 154 non-responders (NR).
+# Response labels 
+table(immuno$Y)   # 65 responders (R) and 154 non-responders (NR).
 
 # Group sizes (species per genus)
-sort(lengths(groups), decreasing = TRUE)
+sort(lengths(immuno$groups), decreasing = TRUE)
 ```
 More Details
 ```r

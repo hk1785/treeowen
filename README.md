@@ -255,7 +255,8 @@ A list with `feature` (data frame with columns `feature` and `importance`), `gro
 ```r
 # result_xgb is produced by treeowen() — see Section 2 example above
 imp <- treeowen_importance(result_xgb, type = "both", sort = TRUE)
-print(imp$group)
+imp$group[1:10,]
+imp$feature[1:10,]
 ```
 
 ---
@@ -293,9 +294,12 @@ library(ggbeeswarm)  # for geom_quasirandom
 library(patchwork)   # required for level = "both"
 
 # result_xgb is produced by treeowen() — see Section 2 example above
-p   <- treeowen_beeswarm(result_xgb, level = "feature", top_n_feature = 15L)
-out <- treeowen_beeswarm(result_xgb, level = "both", top_n_feature = 10L, top_n_group = 5L)
-print(out$combined)
+out.f   <- treeowen_beeswarm(result_xgb, level = "feature", top_n_feature = 10L)
+out.g   <- treeowen_beeswarm(result_xgb, level = "group", top_n_group = 10L)
+out.b   <- treeowen_beeswarm(result_xgb, level = "both", top_n_feature = 10L, top_n_group = 10L)
+print(out.b$feature)
+print(out.b$group)
+print(out.b$combined)
 ```
 
 ---
@@ -334,9 +338,8 @@ library(patchwork)   # required
 
 # result_xgb is produced by treeowen() — see Section 2 example above
 imp   <- treeowen_importance(result_xgb, type = "both")
-pages <- treeowen_hierarchical_beeswarm(result_xgb, imp,
-                                         top_n_group = 10L, top_n_feature = 100L,
-                                         n_col = 2L, save_path = "output/", lname = "xgboost")
+pages <- treeowen_hierarchical_beeswarm(result_xgb, imp, top_n_group = 10L, top_n_feat = 100L,
+                                        n_col = 2L)
 print(pages[[1]])
 ```
 

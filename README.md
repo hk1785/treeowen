@@ -16,8 +16,6 @@ Depends: R(>= 4.1.0), Rcpp, parallel, grid, grDevices, stats, utils
 
 License: MIT
 
-[![R-CMD-check](https://github.com/hk1785/treeowen/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/hk1785/treeowen/actions)
-
 ## Reference
 
 * Koh H. _Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values._ (_In Review_)
@@ -46,12 +44,12 @@ install_github("hk1785/treeowen", force = TRUE)
 ## 📋 Table of Contents
 
 ### 1. Main Functions
-* :mag: **`treeowen`**: Computes **Owen values** for every observation, allocating model attribution in two stages — first across feature groups, then within each group.
-* :mag: **`treeowen_importance`**: Derives **feature-level** and **group-level importance** scores from Owen values, ranked by mean absolute attribution.
+* :mag: **`treeowen`**: Computes Owen values, allocating model attribution in two stages — first across feature groups, then within each group.
+* :mag: **`treeowen_importance`**: Derives feature-level and group-level importance scores from Owen values obtained using `treeowen`.
 
 ### 2. Visualization Tools
-* :mag: **`treeowen_beeswarm`**: Flat **beeswarm** plot visualizing the distribution of Owen values at the feature level, group level, or both side-by-side.
-* :mag: **`treeowen_hierarchical_beeswarm`**: **Hierarchical beeswarm** plot in which each group header row is followed by its nested feature rows, assembled into a multi-column patchwork layout.
+* :mag: **`treeowen_beeswarm`**: Flat beeswarm plot visualizing the distribution of Owen values at the feature level, group level, or both side-by-side.
+* :mag: **`treeowen_hierarchical_beeswarm`**: Hierarchical beeswarm plot in which each group header row is followed by its nested feature rows, assembled into a multi-column patchwork layout.
 
 ### 3. Example Dataset
 * :mag: **`immuno`**: Gut microbiome relative abundance data from 219 cancer patients treated with immune checkpoint inhibitor (ICI) therapy, pooled from five independent cohorts.

@@ -46,12 +46,12 @@ install_github("hk1785/treeowen", force = TRUE)
 ## 📋 Table of Contents
 
 ### 1. Main Functions
-* :mag: **`treeowen`**: Computes **Owen values** for every observation, allocating model attribution in two stages — first across feature groups, then within each group.
-* :mag: **`treeowen_importance`**: Derives **feature-level** and **group-level importance** scores from Owen values, ranked by mean absolute attribution.
+* :mag: **`treeowen`**: Computes Owen values, allocating model attribution in two stages — first across feature groups, then within each group.
+* :mag: **`treeowen_importance`**: Derives feature-level and group-level importance scores from Owen values obtained using `treeowen`.
 
 ### 2. Visualization Tools
-* :mag: **`treeowen_beeswarm`**: Flat **beeswarm** plot visualizing the distribution of Owen values at the feature level, group level, or both side-by-side with connector arrows.
-* :mag: **`treeowen_hierarchical_beeswarm`**: **Hierarchical beeswarm** plot in which each group header row is followed by its nested feature rows, assembled into a multi-column patchwork layout.
+* :mag: **`treeowen_beeswarm`**: Flat beeswarm plot visualizing the distribution of Owen values at the feature level, group level, or both side-by-side.
+* :mag: **`treeowen_hierarchical_beeswarm`**: Hierarchical beeswarm plot in which each group header row is followed by its nested feature rows, assembled into a multi-column patchwork layout.
 
 ### 3. Example Dataset
 * :mag: **`immuno`**: Gut microbiome relative abundance data from 219 cancer patients treated with immune checkpoint inhibitor (ICI) therapy, pooled from five independent cohorts.
@@ -542,18 +542,8 @@ data(immuno)
 
 ### Format
 Loading `data(immuno)` places two objects in the workspace:
-* _immuno_ - A numeric data frame with 219 rows (patients) and 190 columns (microbial features: species and unclassified taxa). Row names follow the pattern `p<id>_<cohort>_<response>`, where `<cohort>` ∈ {`Gop`, `Mat`, `Fra`, `Rou`, `Val`} and `<response>` ∈ {`R` (responder), `NR` (non-responder)}. Column values are relative abundances (proportions summing to approximately 1 per row).
+* _immuno_ - A numeric data frame with 219 rows (patients) and 190 columns (microbial features: species).
 * _groups_ - A named list with 18 elements. Each element is a character vector of species column names belonging to that genus (e.g., `"Akkermansia"`, `"Bacteroides"`). Together, `groups` forms a complete, non-overlapping partition of all 190 columns of `immuno`, suitable for direct use as the `groups` argument of `treeowen`.
-
-### Study Design
-The dataset pools microbiome samples from five independent ICI cohorts:
-* _Gop_ - Gopalakrishnan et al. (2018) — melanoma; _n_ = 25.
-* _Mat_ - Matson et al. (2018) — melanoma; _n_ = 39.
-* _Fra_ - Frankel et al. (2017) — melanoma; _n_ = 14.
-* _Rou_ - Routy et al. (2018) — NSCLC / RCC; _n_ = 127.
-* _Val_ - Valpione et al. — melanoma; _n_ = 14.
-
-Overall: 65 responders (R) and 154 non-responders (NR).
 
 ### References
 * Koh H. _Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values._ (_In Review_)
@@ -569,7 +559,7 @@ names(groups)[1:5]   # first five genus names
 
 # Response labels from row names
 resp_labels <- sub(".*_(R|NR)$", "\\1", rownames(immuno))
-table(resp_labels)   # NR: 154, R: 65
+table(resp_labels)   # 65 responders (R) and 154 non-responders (NR).
 
 # Group sizes (species per genus)
 sort(lengths(groups), decreasing = TRUE)

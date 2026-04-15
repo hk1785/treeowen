@@ -296,40 +296,7 @@ print(pages[[1]])
 
 ---
 
-## 6. Reference enumerators
-
-These compute Owen values by exhaustive enumeration and are intended only for correctness verification on tiny problems (no more than a handful of features and groups).
-
-`treeowen_exact_enum()` — Model-agnostic enumerator using direct subset evaluation.
-
-`treeowen_exact_tuvalues()` — Tree-aware enumerator that exploits the additive structure of ensembles.
-
-Both return `treeowen_result` objects.
-
----
-
-## 7. Custom hierarchy trees
-
-The auxiliary binary tree over groups controls how the outer attribution is structured internally. The default balanced binary tree works well in most cases.
-
-`build_hierarchy_tree_binary(hier)` — Build from a fully specified nested list where each leaf is a single integer group index and each internal node is a list with exactly two children.
-
-`build_hierarchy_tree_from_layers(K, hierarchy)` — Build from a layer-merge specification (matrix or NULL for balanced default). This is the function called internally by `treeowen()`.
-
-Changing the hierarchy does not affect the values of Owen values, only computation speed.
-
-```r
-# Custom tree: ((G1, G2), (G3, (G4, G5)))
-tree <- build_hierarchy_tree_binary(
-  list(left  = list(left = 1L, right = 2L),
-       right = list(left = 3L, right = list(left = 4L, right = 5L)))
-)
-result_custom <- treeowen(unified, X, groups, hierarchy = tree)
-```
-
----
-
-## 8. Example dataset: immuno
+## 6. Example dataset: immuno
 
 Gut microbiome relative abundances from 219 cancer immunotherapy patients across five cohorts. Features are microbial species. The outcome is treatment response (1 = responder, 0 = non-responder).
 
@@ -339,43 +306,3 @@ data(immuno)
 # immuno$Y      — numeric vector of length 219
 # immuno$groups — named list mapping genus names to species feature names
 ```
-
----
-
-## 9. Version compatibility notes
-
-### XGBoost
-
-| Issue | Affected versions | How it is handled |
-|---|---|---|
-| `ID` column absent from `xgb.model.dt.tree()` | xgboost before 1.7 | Reconstructed from `Tree` and `Node` columns |
-| Split-gain column named `Quality` not `Gain` | xgboost 1.7+ | Renamed automatically |
-| `xgb.model.dt.tree()` argument renamed to `xgb_model` | xgboost 2.x | Both argument names tried |
-| `treeshap::xgboost.unify()` breaks on new class structure | xgboost 2.x | treeshap bypassed entirely; model parsed directly |
-
-### LightGBM
-
-| Issue | Affected versions | How it is handled |
-|---|---|---|
-| `lgb.model.dt.tree()` unavailable | lightgbm before 3.2 | `dump_model()` JSON fallback |
-| Column names changed | lightgbm 3.x vs 4.x | All known aliases resolved automatically |
-| Booster class restructuring breaks treeshap | lightgbm 4.0+ | Three-level fallback: treeshap → lgb.model.dt.tree → dump_model |
-| `best_iter` slot renamed to `best_iteration` | lightgbm 4.x | Both slot names tried |
-| `verbose` argument location changed in `lgb.cv()` | lightgbm 4.x | Pass `-1L` both inside `params` and as a direct argument |
-
-### Ranger
-
-| Issue | Affected versions | How it is handled |
-|---|---|---|
-| `treeInfo()` returns `pred.1` instead of `prediction` | ranger before 0.14 | Renamed automatically |
-| `treeInfo()` column name variations | ranger 0.11–0.16+ | All known aliases normalised |
-| `ranger_unify.common()` signature changed | treeshap 0.3 vs 0.4 | Multiple calling conventions tried |
-| `child.nodeIDs` structure changed | ranger 0.11 vs 0.14+ | Both list and column formats parsed |
-| Non-probability forest | any | Warning emitted; unification still attempted |
-| `model$forest` is NULL | when trained with `write.forest = FALSE` | Informative error with clear message |
-
-### General advice
-
-- Always train ranger models with `probability = TRUE` and `keep.inbag = TRUE`.
-- You do not need a specific version of treeshap. The wrappers fall back to direct tree parsing whenever treeshap calls fail.
-- On Windows, set `n_cores = 1L` in `treeowen()`. Parallel execution via `foreach` / `doParallel` is possible but requires XPtr serialization which is not supported on Windows.

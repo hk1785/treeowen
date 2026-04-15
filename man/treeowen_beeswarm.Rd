@@ -3,8 +3,7 @@
 \title{Beeswarm Plots of Owen Values}
 \description{
 Produces SHAP-style beeswarm plots of Owen value distributions at the
-feature level, the group level, or both panels side by side with connector
-arrows. Points are coloured by the feature's raw value (feature panel) or by
+feature level, the group level, or both panels side by side. Points are coloured by the feature's raw value (feature panel) or by
 a group-level summary statistic (group panel).
 }
 \usage{
@@ -44,12 +43,6 @@ treeowen_beeswarm(
   legend_direction  = "horizontal",
   legend_barwidth   = grid::unit(170, "pt"),
   legend_barheight  = grid::unit(10,  "pt"),
-  connector_width   = 0.12,
-  arrow_color       = "grey50",
-  arrow_alpha       = 0.55,
-  arrow_linewidth   = 0.5,
-  arrow_curvature   = 0.3,
-  arrow_size        = 0.15,
   verbose           = FALSE
 )
 }
@@ -61,7 +54,7 @@ treeowen_beeswarm(
   \describe{
     \item{\code{"feature"}}{(default) One beeswarm row per feature.}
     \item{\code{"group"}}{One beeswarm row per group.}
-    \item{\code{"both"}}{\pkg{patchwork}: group | connector | feature.
+    \item{\code{"both"}}{\pkg{patchwork}: group | feature side-by-side.
       Requires \pkg{patchwork}.}
   }}
 
@@ -131,14 +124,6 @@ treeowen_beeswarm(
 \item{legend_barheight}{\code{grid::unit}.
   Default \code{grid::unit(10, "pt")}.}
 
-\item{connector_width}{Numeric in \eqn{(0, 0.4]}.  Relative width of
-  the connector panel.  Default \code{0.12}.}
-\item{arrow_color}{Character.  Default \code{"grey50"}.}
-\item{arrow_alpha}{Numeric.  Default \code{0.55}.}
-\item{arrow_linewidth}{Numeric.  Default \code{0.5}.}
-\item{arrow_curvature}{Numeric.  Default \code{0.3}.}
-\item{arrow_size}{Numeric (cm).  Arrowhead size.  Default \code{0.15}.}
-
 \item{verbose}{Logical.  Default \code{FALSE}.}
 }
 \value{
@@ -148,19 +133,19 @@ treeowen_beeswarm(
   \item{\code{level = "both"}}{An object of class \code{"treeowen_plots"}
     (named list):
     \describe{
-      \item{\code{combined}}{\pkg{patchwork}: group | connector | feature.}
+      \item{\code{combined}}{\pkg{patchwork}: group | feature side-by-side.}
       \item{\code{feature}}{Standalone feature \code{ggplot}.}
       \item{\code{group}}{Standalone group \code{ggplot}.}
       \item{\code{feat_ordered}}{Features in display order.}
       \item{\code{grp_ordered}}{Groups in display order.}
-      \item{\code{arrow_data}}{Connector arrow coordinate data frame.}
     }}
 }
 }
 \details{
 Requires \pkg{ggplot2} and \pkg{grid}.  \pkg{ggbeeswarm} is strongly
 recommended (falls back to \code{geom_jitter} if unavailable).
-\pkg{patchwork} is required for \code{level = "both"}.
+\pkg{patchwork} is required for \code{level = "both"}.  The two panels
+(group and feature) are placed side by side.
 \pkg{scales} is used for colour clipping when available.
 }
 \references{
@@ -198,16 +183,13 @@ p_grp <- treeowen_beeswarm(result, level = "group", top_n_group = 5L,
                             group_color_stat = "sum")
 print(p_grp)
 
-## ── Both panels (group | connector | feature) ───────────────────────────────
+## ── Both panels (group | feature side-by-side) ─────────────────────────────
 ## Requires patchwork
 library(patchwork)
 out <- treeowen_beeswarm(result, level = "both",
-                          top_n_feature = 10L, top_n_group = 5L,
-                          connector_width = 0.10)
+                          top_n_feature = 10L, top_n_group = 5L)
 print(out$combined)                # patchwork figure
 print(out$feature)                 # feature panel alone
 print(out$group)                   # group panel alone
-cat("Displayed features:", out$feat_ordered, "\n")
-cat("Displayed groups:  ", out$grp_ordered,  "\n")
 }
 }

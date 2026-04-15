@@ -34,7 +34,7 @@ importFrom(Rcpp, evalCpp)
 
 # ── Base-package imports (suppress R CMD check NOTEs) ─────────────────────────
 importFrom(grDevices, adjustcolor)
-importFrom(grid, unit, arrow)
+importFrom(grid, unit)
 importFrom(parallel, mclapply)
 importFrom(stats, quantile, setNames)
 importFrom(utils, head, txtProgressBar, setTxtProgressBar)

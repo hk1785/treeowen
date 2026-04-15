@@ -46,12 +46,12 @@ install_github("hk1785/treeowen", force = TRUE)
 ## 📋 Table of Contents
 
 ### 1. Main Functions
-* :mag: **`treeowen`**: Computes Owen values, allocating model attribution in two stages — first across feature groups, then within each group.
-* :mag: **`treeowen_importance`**: Derives feature-level and group-level importance scores from Owen values obtained using `treeowen`.
+* :mag: **`treeowen`**: Computes **Owen values** for every observation, allocating model attribution in two stages — first across feature groups, then within each group.
+* :mag: **`treeowen_importance`**: Derives **feature-level** and **group-level importance** scores from Owen values, ranked by mean absolute attribution.
 
 ### 2. Visualization Tools
-* :mag: **`treeowen_beeswarm`**: Flat beeswarm plot visualizing the distribution of Owen values at the feature level, group level, or both side-by-side.
-* :mag: **`treeowen_hierarchical_beeswarm`**: Hierarchical beeswarm plot in which each group header row is followed by its nested feature rows, assembled into a multi-column patchwork layout.
+* :mag: **`treeowen_beeswarm`**: Flat **beeswarm** plot visualizing the distribution of Owen values at the feature level, group level, or both side-by-side.
+* :mag: **`treeowen_hierarchical_beeswarm`**: **Hierarchical beeswarm** plot in which each group header row is followed by its nested feature rows, assembled into a multi-column patchwork layout.
 
 ### 3. Example Dataset
 * :mag: **`immuno`**: Gut microbiome relative abundance data from 219 cancer patients treated with immune checkpoint inhibitor (ICI) therapy, pooled from five independent cohorts.
@@ -251,7 +251,7 @@ More Details
 ## :mag: treeowen_beeswarm
 
 ### Description
-Produces SHAP-style beeswarm plots of Owen value distributions at the feature level, the group level, or both panels side by side with connector arrows. Points are coloured by the feature's raw value (feature panel) or by a group-level summary statistic (group panel).
+Produces SHAP-style beeswarm plots of Owen value distributions at the feature level, the group level, or both panels side by side. Points are coloured by the feature's raw value (feature panel) or by a group-level summary statistic (group panel).
 
 ### Syntax
 ```r
@@ -291,19 +291,13 @@ treeowen_beeswarm(
   legend_direction  = "horizontal",
   legend_barwidth   = grid::unit(170, "pt"),
   legend_barheight  = grid::unit(10,  "pt"),
-  connector_width   = 0.12,
-  arrow_color       = "grey50",
-  arrow_alpha       = 0.55,
-  arrow_linewidth   = 0.5,
-  arrow_curvature   = 0.3,
-  arrow_size        = 0.15,
   verbose           = FALSE
 )
 ```
 
 ### Arguments
 * _result_ - An object of class `"treeowen_result"` from `treeowen`.
-* _level_ - Character. Panel(s) to produce: `"feature"` (default; one beeswarm row per feature), `"group"` (one row per group), or `"both"` (group | connector | feature assembled via `patchwork`; requires `patchwork`).
+* _level_ - Character. Panel(s) to produce: `"feature"` (default; one beeswarm row per feature), `"group"` (one row per group), or `"both"` (group | feature side-by-side via `patchwork`; requires `patchwork`).
 * _group_agg_ - Character. Aggregation for sort order: `"sum_abs"` (default; mean absolute group attribution) or `"sum_abs_feat"` (mean of within-group feature importances). `"both"` is not permitted (ambiguous sort order).
 * _normalize_imp_ - Logical. Normalise importance before sorting. Default `FALSE`.
 * _top_n_feature_ - Integer or `NULL`. Number of top features to show. Default `10L`.
@@ -334,17 +328,11 @@ treeowen_beeswarm(
 * _legend_direction_ - Character. Default `"horizontal"`.
 * _legend_barwidth_ - `grid::unit`. Default `grid::unit(170, "pt")`.
 * _legend_barheight_ - `grid::unit`. Default `grid::unit(10, "pt")`.
-* _connector_width_ - Numeric in (0, 0.4]. Relative width of the connector panel when `level = "both"`. Default `0.12`.
-* _arrow_color_ - Character. Connector arrow colour. Default `"grey50"`.
-* _arrow_alpha_ - Numeric. Connector arrow transparency. Default `0.55`.
-* _arrow_linewidth_ - Numeric. Connector line width. Default `0.5`.
-* _arrow_curvature_ - Numeric. Connector curvature. Default `0.3`.
-* _arrow_size_ - Numeric (cm). Arrowhead size. Default `0.15`.
 * _verbose_ - Logical. Print diagnostic messages. Default `FALSE`.
 
 ### Values
 * When `level = "feature"` or `"group"`: a `ggplot` object.
-* When `level = "both"`: an object of class `"treeowen_plots"` (a named list) with components: _combined_ (patchwork: group | connector | feature), _feature_ (standalone feature ggplot), _group_ (standalone group ggplot), _feat_ordered_ (features in display order), _grp_ordered_ (groups in display order), and _arrow_data_ (connector arrow coordinates).
+* When `level = "both"`: an object of class `"treeowen_plots"` (a named list) with components: _combined_ (patchwork: group | feature side-by-side), _feature_ (standalone feature ggplot), _group_ (standalone group ggplot), _feat_ordered_ (features in display order), _grp_ordered_ (groups in display order).
 
 ### Example
 Import requisite R packages
@@ -385,8 +373,7 @@ p_grp
 Draw both panels side-by-side
 ```r
 out <- treeowen_beeswarm(result, level = "both",
-                          top_n_feature = 10L, top_n_group = 5L,
-                          connector_width = 0.10)
+                          top_n_feature = 10L, top_n_group = 5L)
 out$combined
 ```
 More Details

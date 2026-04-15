@@ -245,15 +245,14 @@ p_grp <- treeowen_beeswarm(
 )
 print(p_grp)
 
-# ── §5c. Both panels (group | connector | feature) ───────────────────────────
+# ── §5c. Both panels (group | feature side-by-side) ─────────────────────────
 # Requires patchwork.  Returns a treeowen_plots list.
 out_both <- treeowen_beeswarm(
-  result          = result_xgb,
-  level           = "both",
-  top_n_feature   = 10L,
-  top_n_group     = 5L,
-  connector_width = 0.10,   # relative width of the arrow connector panel
-  verbose         = FALSE
+  result        = result_xgb,
+  level         = "both",
+  top_n_feature = 10L,
+  top_n_group   = 5L,
+  verbose       = FALSE
 )
 print(out_both$combined)               # patchwork figure
 if (!is.null(out_both$feature)) print(out_both$feature)

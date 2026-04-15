@@ -6,7 +6,7 @@
 #' Beeswarm Plots of Owen Values (Feature and Group Level)
 #'
 #' Produces beeswarm plots of Owen value distributions at the feature level,
-#' the group level, or both (side-by-side with connector arrows). Points are
+#' the group level, or both (side-by-side). Points are
 #' coloured by the feature's raw value (feature plot) or by a group-level
 #' summary statistic (group plot).
 #'
@@ -51,10 +51,6 @@
 #' @param legend_position,legend_direction Legend position and direction.
 #' @param legend_barwidth,legend_barheight \code{grid::unit} objects for
 #'   colour-bar dimensions.
-#' @param connector_width Numeric in \eqn{(0, 0.4]}. Relative width of the
-#'   connector panel in \code{level = "both"} mode. Default \code{0.12}.
-#' @param arrow_color,arrow_alpha,arrow_linewidth,arrow_curvature,arrow_size
-#'   Connector arrow appearance parameters.
 #' @param verbose Logical. Print diagnostic messages. Default \code{FALSE}.
 #'
 #' @return
@@ -64,12 +60,11 @@
 #' When \code{level = "both"}: an object of class \code{"treeowen_plots"}
 #' (a list) with components:
 #' \describe{
-#'   \item{\code{combined}}{Patchwork of group | connector | feature panels.}
+#'   \item{\code{combined}}{Patchwork of group | feature panels.}
 #'   \item{\code{feature}}{Standalone feature \code{ggplot}.}
 #'   \item{\code{group}}{Standalone group \code{ggplot}.}
 #'   \item{\code{feat_ordered}}{Displayed features in importance order.}
 #'   \item{\code{grp_ordered}}{Displayed groups in importance order.}
-#'   \item{\code{arrow_data}}{Data frame of connector arrow coordinates.}
 #' }
 #'
 #' @details
@@ -126,12 +121,6 @@ treeowen_beeswarm <- function(
     legend_direction   = "horizontal",
     legend_barwidth    = grid::unit(170, "pt"),
     legend_barheight   = grid::unit(10,  "pt"),
-    connector_width    = 0.12,
-    arrow_color        = "grey50",
-    arrow_alpha        = 0.55,
-    arrow_linewidth    = 0.5,
-    arrow_curvature    = 0.3,
-    arrow_size         = 0.15,
     verbose            = FALSE
 ) {
   if (!.pkg_ok("ggplot2"))
@@ -346,52 +335,12 @@ treeowen_beeswarm <- function(
     ggplot2::labs(title = title_feature, x = xlab_feature, y = NULL, color = "") +
     ggplot2::scale_y_discrete(position = "right") + .common_theme(hide_left_y = TRUE)
 
-  feat_names_all <- colnames(ow_mat)
-  feat_to_grp    <- setNames(rep(NA_character_, length(feat_names_all)), feat_names_all)
-  for (k in seq_len(K)) {
-    gp <- group_pos[[k]]; gp <- gp[gp >= 1L & gp <= length(feat_names_all)]
-    gn <- grp_names_all[k]
-    if (length(gp)) feat_to_grp[feat_names_all[gp]] <- gn
-  }
-  grp_rank  <- setNames(seq_len(n_grp),  grp_ordered)
-  feat_rank <- setNames(seq_len(n_feat), feat_ordered)
-  arrow_rows <- vector("list", n_feat)
-  for (fi in seq_len(n_feat)) {
-    fn <- feat_ordered[fi]; gn <- feat_to_grp[fn]
-    if (is.na(gn) || !(gn %in% grp_ordered)) next
-    gr <- grp_rank[[gn]]; fr <- feat_rank[[fn]]
-    arrow_rows[[fi]] <- data.frame(
-      x = 0.05, xend = 0.95,
-      y = 1 - (gr - 0.5) / n_grp, yend = 1 - (fr - 0.5) / n_feat,
-      stringsAsFactors = FALSE)
-  }
-  df_arrows <- do.call(rbind, Filter(Negate(is.null), arrow_rows))
-
-  p_conn <- ggplot2::ggplot() +
-    ggplot2::coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), clip = "off") +
-    ggplot2::theme_void() +
-    ggplot2::theme(plot.margin = ggplot2::margin(t = margin_t, r = 0, b = margin_b, l = 0))
-
-  if (!is.null(df_arrows) && nrow(df_arrows) > 0) {
-    p_conn <- p_conn +
-      ggplot2::geom_curve(
-        data = df_arrows,
-        mapping = ggplot2::aes(x = x, y = y, xend = xend, yend = yend),
-        color = arrow_color, alpha = arrow_alpha, linewidth = arrow_linewidth,
-        curvature = arrow_curvature,
-        arrow = grid::arrow(length = grid::unit(arrow_size, "cm"), type = "closed"))
-  } else if (isTRUE(verbose)) {
-    message("[treeowen_beeswarm] No connectable (group, feature) pairs; connector panel empty.")
-  }
-
-  w_conn <- max(0.02, min(0.4, as.numeric(connector_width)))
-  w_side <- (1 - w_conn) / 2
-  combined <- (p_grp_b + p_conn + p_feat_b) +
-    patchwork::plot_layout(widths = c(w_side, w_conn, w_side))
+  # group | feature side-by-side (no connector panel)
+  combined <- (p_grp_b + p_feat_b) +
+    patchwork::plot_layout(widths = c(1, 1))
 
   out <- list(combined = combined, feature = p_feat, group = p_grp,
-              feat_ordered = feat_ordered, grp_ordered = grp_ordered,
-              arrow_data = df_arrows)
+              feat_ordered = feat_ordered, grp_ordered = grp_ordered)
   class(out) <- c("treeowen_plots", "list")
   out
 }

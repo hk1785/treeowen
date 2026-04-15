@@ -74,11 +74,11 @@ tree2 <- build_hierarchy_tree_from_layers(K = 6L, hierarchy = hier_mat)
 
 ## Verify hierarchy-invariance of Owen values
 set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=5), "G", rep(1:5, each=5))
-X <- as.data.frame(matrix(rnorm(50*25), 50, 25, dimnames=list(NULL,feat_names)))
+feat_names <- paste0("F", rep(1:5, times=20), "G", rep(1:20, each=5))
+X <- as.data.frame(matrix(rnorm(100*100), 100, 100, dimnames=list(NULL,feat_names)))
 log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3
 Y <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:5, function(k) paste0("F",1:5,"G",k)), paste0("G",1:5))
+groups <- setNames(lapply(1:20, function(k) paste0("F",1:5,"G",k)), paste0("G",1:20))
 
 library(xgboost); library(treeshap)
 xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label=Y),

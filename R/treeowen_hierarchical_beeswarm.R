@@ -17,8 +17,8 @@
 #'   \code{$group}).
 #' @param top_n_group Integer or \code{NULL}. Top groups to display by group
 #'   importance. \code{NULL} (default) displays all groups.
-#' @param top_n_feat Integer or \code{NULL}. Restrict features to those among
-#'   the top \code{top_n_feat} by feature importance that also belong to the
+#' @param top_n_feature Integer or \code{NULL}. Restrict features to those among
+#'   the top \code{top_n_feature} by feature importance that also belong to the
 #'   selected groups. \code{NULL} (default) displays all features.
 #' @param n_col Integer. Number of layout columns. Default \code{2L}.
 #' @param group_color_stat Character. How to compute the colour statistic for
@@ -76,7 +76,7 @@
 #' imp    <- treeowen_importance(result, type = "both")
 #' pages  <- treeowen_hierarchical_beeswarm(
 #'   ow_result   = result, imp = imp,
-#'   top_n_group = 10L, top_n_feat = 100L, n_col = 2L
+#'   top_n_group = 10L, top_n_feature = 100L, n_col = 2L
 #' )
 #' print(pages[[1]])
 #' # Save to disk
@@ -91,7 +91,7 @@ treeowen_hierarchical_beeswarm <- function(
     ow_result,
     imp,
     top_n_group      = NULL,
-    top_n_feat       = NULL,
+    top_n_feature       = NULL,
     n_col            = 2L,
     group_color_stat = "sum",
     color_low        = "#0052A5",
@@ -143,10 +143,10 @@ treeowen_hierarchical_beeswarm <- function(
       if (fn %in% feat_cols) feat2grp[fn] <- gn
 
   # ── 3. features per group (feature importance order) ───────────────────────
-  top_feats <- if (is.null(top_n_feat) || !is.finite(top_n_feat) || top_n_feat < 1L)
+  top_feats <- if (is.null(top_n_feature) || !is.finite(top_n_feature) || top_n_feature < 1L)
     NULL
   else
-    head(feat_imp$feature, as.integer(top_n_feat))
+    head(feat_imp$feature, as.integer(top_n_feature))
 
   feat_by_grp <- lapply(grp_order, function(gn) {
     feats <- feat_imp$feature[feat2grp[feat_imp$feature] == gn]

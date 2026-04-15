@@ -14,7 +14,7 @@ treeowen_hierarchical_beeswarm(
  ow_result,
  imp,
  top_n_group = NULL,
- top_n_feat = NULL,
+ top_n_feature = NULL,
  n_col = 2L,
  group_color_stat = "sum",
  color_low = "#0052A5",
@@ -50,8 +50,8 @@ treeowen_hierarchical_beeswarm(
 \item{top_n_group}{Integer or \code{NULL}. Top groups by group importance.
  \code{NULL} (default) shows all.}
 
-\item{top_n_feat}{Integer or \code{NULL}. Restrict features to those
- among the top \code{top_n_feat} by feature importance that also belong
+\item{top_n_feature}{Integer or \code{NULL}. Restrict features to those
+ among the top \code{top_n_feature} by feature importance that also belong
  to the selected groups. \code{NULL} (default) shows all features in the
  selected groups.}
 
@@ -147,11 +147,11 @@ via Owen Values. (In Review)
 \dontrun{
 ## ── Synthetic data + XGBoost (see ?treeowen for data setup) ─────────────────
 set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=5), "G", rep(1:5, each=5))
-X <- as.data.frame(matrix(rnorm(50*25), 50, 25, dimnames=list(NULL,feat_names)))
+feat_names <- paste0("F", rep(1:5, times=20), "G", rep(1:20, each=5))
+X <- as.data.frame(matrix(rnorm(100*100), 100, 100, dimnames=list(NULL,feat_names)))
 log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
 Y <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:5, function(k) paste0("F",1:5,"G",k)), paste0("G",1:5))
+groups <- setNames(lapply(1:20, function(k) paste0("F",1:5,"G",k)), paste0("G",1:20))
 
 library(treeowen)
 library(xgboost)
@@ -173,7 +173,7 @@ pages <- treeowen_hierarchical_beeswarm(
  ow_result = result,
  imp = imp,
  top_n_group = 5L, # top 5 groups
- top_n_feat = NULL, # all features in those groups
+ top_n_feature = NULL, # all features in those groups
  n_col = 2L,
  group_color_stat = "sum",
  show_colorbar = TRUE, # standalone colour-bar strip at bottom

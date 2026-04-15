@@ -201,14 +201,14 @@ library(xgboost)
 
 ## Synthetic data: 5 groups of 5 features each, 50 observations
 set.seed(42)
-feat_names <- paste0("F", rep(seq_len(5), times = 5),
-                     "G", rep(seq_len(5), each  = 5))
-X <- as.data.frame(matrix(rnorm(50 * 25), 50, 25,
+feat_names <- paste0("F", rep(seq_len(5), times = 20),
+                     "G", rep(seq_len(20), each  = 5))
+X <- as.data.frame(matrix(rnorm(100 * 100), 100, 100,
                            dimnames = list(NULL, feat_names)))
 Y <- as.integer(0.8 * X$F1G1 - 0.6 * X$F2G1 + 0.5 * X$F1G3 > 0)
 groups <- setNames(
-  lapply(seq_len(5), function(k) paste0("F", seq_len(5), "G", k)),
-  paste0("G", seq_len(5)))
+  lapply(seq_len(20), function(k) paste0("F", seq_len(5), "G", k)),
+  paste0("G", seq_len(20)))
 
 ## Fit XGBoost and compute Owen values
 library(xgboost)

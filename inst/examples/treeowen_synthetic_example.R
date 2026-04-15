@@ -15,20 +15,20 @@ library(treeshap)
 ###############################################################################
 set.seed(42)
 
-# 25 features in 5 groups of 5
-feat_names <- paste0("F", rep(1:5, times = 5), "G", rep(1:5, each = 5))
+# 100 features in 20 groups of 5
+feat_names <- paste0("F", rep(1:5, times = 20), "G", rep(1:20, each = 5))
 X <- as.data.frame(
-  matrix(rnorm(50 * 25), 50, 25, dimnames = list(NULL, feat_names))
+  matrix(rnorm(100 * 100), 100, 100, dimnames = list(NULL, feat_names))
 )
 
 # Binary outcome driven mainly by G1 and G3
 log_odds <- 0.8 * X$F1G1 - 0.6 * X$F2G1 + 0.5 * X$F1G3 + 0.3 * X$F1G2
 Y <- as.integer(log_odds > 0)
 
-# Feature partition: 5 groups of 5 features each
+# Feature partition: 20 groups of 5 features each
 groups <- setNames(
-  lapply(1:5, function(k) paste0("F", 1:5, "G", k)),
-  paste0("G", 1:5)
+  lapply(1:20, function(k) paste0("F", 1:5, "G", k)),
+  paste0("G", 1:20)
 )
 
 cat(sprintf("Data: n=%d  p=%d  K=%d  Pr(Y=1)=%.2f\n",
@@ -83,11 +83,12 @@ p_both_xgb <- treeowen_beeswarm(result_xgb, level = "both",
 
 # Hierarchical beeswarm
 pages_xgb <- treeowen_hierarchical_beeswarm(
-  ow_result   = result_xgb,
-  imp         = imp_xgb,
-  top_n_group = 5L,
-  n_col       = 2L,
-  verbose     = TRUE
+  ow_result     = result_xgb,
+  imp           = imp_xgb,
+  top_n_group   = 5L,
+  top_n_feature = 100L,
+  n_col         = 2L,
+  verbose       = TRUE
 )
 # print(pages_xgb[[1]])
 
@@ -147,11 +148,12 @@ p_both_lgb <- treeowen_beeswarm(result_lgb, level = "both",
 
 # Hierarchical beeswarm
 pages_lgb <- treeowen_hierarchical_beeswarm(
-  ow_result   = result_lgb,
-  imp         = imp_lgb,
-  top_n_group = 5L,
-  n_col       = 2L,
-  verbose     = TRUE
+  ow_result     = result_lgb,
+  imp           = imp_lgb,
+  top_n_group   = 5L,
+  top_n_feature = 100L,
+  n_col         = 2L,
+  verbose       = TRUE
 )
 # print(pages_lgb[[1]])
 
@@ -212,11 +214,12 @@ p_both_rng <- treeowen_beeswarm(result_rng, level = "both",
 
 # Hierarchical beeswarm
 pages_rng <- treeowen_hierarchical_beeswarm(
-  ow_result   = result_rng,
-  imp         = imp_rng,
-  top_n_group = 5L,
-  n_col       = 2L,
-  verbose     = TRUE
+  ow_result     = result_rng,
+  imp           = imp_rng,
+  top_n_group   = 5L,
+  top_n_feature = 100L,
+  n_col         = 2L,
+  verbose       = TRUE
 )
 # print(pages_rng[[1]])
 

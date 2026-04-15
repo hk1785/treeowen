@@ -26,7 +26,7 @@ treeowen_beeswarm(
  title_feature = NULL,
  title_group = NULL,
  xlab_feature = "Owen Value",
- xlab_group = "Group Owen Value",
+ xlab_group = "Owen Value",
  legend_label_feat = "Value",
  legend_label_grp = NULL,
  plot_title_size = 16,
@@ -101,7 +101,7 @@ treeowen_beeswarm(
 \item{xlab_feature}{Character. x-axis label, feature panel.
  Default \code{"Owen Value"}.}
 \item{xlab_group}{Character. x-axis label, group panel.
- Default \code{"Group Owen Value"}.}
+ Default \code{"Owen Value"}.}
 \item{legend_label_feat}{Character. Colour-bar label, feature panel.
  Default \code{"Value"}.}
 \item{legend_label_grp}{Character or \code{NULL}. Colour-bar label,
@@ -160,11 +160,11 @@ via Owen Values. (In Review)
 \dontrun{
 ## ── Synthetic data + XGBoost (see ?treeowen for data setup) ─────────────────
 set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=5), "G", rep(1:5, each=5))
-X <- as.data.frame(matrix(rnorm(50*25), 50, 25, dimnames=list(NULL,feat_names)))
+feat_names <- paste0("F", rep(1:5, times=20), "G", rep(1:20, each=5))
+X <- as.data.frame(matrix(rnorm(100*100), 100, 100, dimnames=list(NULL,feat_names)))
 log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
 Y <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:5, function(k) paste0("F",1:5,"G",k)), paste0("G",1:5))
+groups <- setNames(lapply(1:20, function(k) paste0("F",1:5,"G",k)), paste0("G",1:20))
 
 library(treeowen)
 library(xgboost)

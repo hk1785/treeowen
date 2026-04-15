@@ -1,3 +1,21 @@
+# treeowen 0.2.3
+
+## Changes
+
+* **Synthetic data examples** updated to use 20 groups of 5 features each
+  (100 features total, n = 100 observations) in all examples, man pages,
+  README, and `inst/examples/`.  Previously 5 groups × 5 features (25
+  features, n = 50).
+
+* **`treeowen_beeswarm()`**
+  - `xlab_group` default changed from `"Group Owen Value"` to `"Owen Value"`.
+  - Colour-bar label for the group panel now defaults to `"Value"` instead
+    of `"Group\nvalue\n(sum)"` / `"Group\nvalue\n(mean)"`.
+
+* **`treeowen_hierarchical_beeswarm()`**
+  - Parameter renamed: `top_n_feat` → `top_n_feature` for consistency with
+    `treeowen_beeswarm()`.  All man pages, examples, and README updated.
+
 # treeowen 0.2.2
 
 ## Bug fixes

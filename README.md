@@ -192,14 +192,14 @@ library(treeowen)
  
 # ── Synthetic data ─────────────────────────────────────────────────────────
 set.seed(42)
-feat_names <- paste0("F", rep(1:5, times = 5), "G", rep(1:5, each = 5))
-X <- as.data.frame(matrix(rnorm(50 * 25), 50, 25,
+feat_names <- paste0("F", rep(1:5, times = 20), "G", rep(1:20, each = 5))
+X <- as.data.frame(matrix(rnorm(100 * 100), 100, 100,
                            dimnames = list(NULL, feat_names)))
 Y <- as.integer(0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2 > 0)
  
-# Feature partition: 5 groups of 5 features each
-groups <- setNames(lapply(1:5, function(k) paste0("F", 1:5, "G", k)),
-                   paste0("G", 1:5))
+# Feature partition: 20 groups of 5 features each
+groups <- setNames(lapply(1:20, function(k) paste0("F", 1:5, "G", k)),
+                   paste0("G", 1:20))
  
 # ── XGBoost ────────────────────────────────────────────────────────────────
 library(xgboost)
@@ -311,7 +311,7 @@ treeowen_hierarchical_beeswarm(
   ow_result,
   imp,
   top_n_group    = NULL,
-  top_n_feat     = NULL,
+  top_n_feature  = NULL,
   n_col          = 2L,
   show_colorbar  = TRUE,
   width_in       = 10,
@@ -334,8 +334,9 @@ library(patchwork)   # required
 
 # result_xgb is produced by treeowen() — see Section 2 example above
 imp   <- treeowen_importance(result_xgb, type = "both")
-pages <- treeowen_hierarchical_beeswarm(result_xgb, imp, top_n_group = 10L, n_col = 2L,
-                                         save_path = "output/", lname = "xgboost")
+pages <- treeowen_hierarchical_beeswarm(result_xgb, imp,
+                                         top_n_group = 10L, top_n_feature = 100L,
+                                         n_col = 2L, save_path = "output/", lname = "xgboost")
 print(pages[[1]])
 ```
 

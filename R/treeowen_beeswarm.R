@@ -104,7 +104,7 @@ treeowen_beeswarm <- function(
     title_feature      = NULL,
     title_group        = NULL,
     xlab_feature       = "Owen Value",
-    xlab_group         = "Group Owen Value",
+    xlab_group         = "Owen Value",
     legend_label_feat  = "Value",
     legend_label_grp   = NULL,
     plot_title_size    = 16,
@@ -242,8 +242,8 @@ treeowen_beeswarm <- function(
 
   if (is.null(legend_label_grp))
     legend_label_grp <- switch(group_color_stat,
-      "sum"    = "Group\nvalue\n(sum)",
-      "mean"   = "Group\nvalue\n(mean)",
+      "sum"    = "Value",
+      "mean"   = "Value",
       "custom" = "Group\nstat")
 
   # ── feature data ─────────────────────────────────────────────────────────────

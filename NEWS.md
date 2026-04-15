@@ -1,3 +1,13 @@
+# treeowen 0.1.2
+
+## Bug fix
+
+* Fixed compilation failure on macOS arm64 (Apple clang 17, /opt/R/arm64
+  layout) where `R CMD INSTALL` did not inject the Rcpp include path
+  automatically despite `LinkingTo: Rcpp` being set in DESCRIPTION.
+  `src/Makevars` now calls `Rscript -e "cat(Rcpp:::CxxFlags())"` at
+  build time to retrieve the correct `-I` flag on every platform.
+
 # treeowen 0.1.1
 
 ## New features

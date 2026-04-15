@@ -1,10 +1,13 @@
 ## treeowen/src/Makevars
 ##
-## Set C++ standard and OpenMP flags.
-## Rcpp include path: R CMD INSTALL adds it automatically via LinkingTo: Rcpp
-## in DESCRIPTION.  If you encounter 'Rcpp.h not found', ensure Rcpp is
-## installed: install.packages("Rcpp")
+## On macOS arm64 (and some other platforms), R CMD INSTALL may not
+## automatically pass the Rcpp include path to the compiler even when
+## LinkingTo: Rcpp is declared in DESCRIPTION.
+## This file retrieves the path explicitly via Rscript so the package
+## compiles correctly on all platforms without a configure script.
 
-CXX_STD     = CXX11
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
+RCPP_CFLAGS = $(shell Rscript --no-save --no-restore -e "cat(Rcpp:::CxxFlags())")
+
+CXX_STD      = CXX11
+PKG_CXXFLAGS = $(RCPP_CFLAGS) $(SHLIB_OPENMP_CXXFLAGS)
 PKG_LIBS     = $(SHLIB_OPENMP_CXXFLAGS)

@@ -541,12 +541,12 @@ library(treeowen)
 data(immuno)
 
 # Dimensions
-dim(immuno$X)          # 219 x 190
-length(immuno$groups)       # 18 genera
-names(immuno$groups)[1:5]   # first five genus names
+dim(immuno$X) # 219 x 190
+length(immuno$groups) # 18 genera
+names(immuno$groups)[1:5] # first five genus names
 
 # Response labels 
-table(immuno$Y)   # 65 responders (R) and 154 non-responders (NR).
+table(immuno$Y) # 65 responders (R) and 154 non-responders (NR).
 
 # Group sizes (species per genus)
 sort(lengths(immuno$groups), decreasing = TRUE)

@@ -1,6 +1,5 @@
 ## treeowen/src/Makevars.win
-RCPP_CFLAGS = $(shell Rscript.exe --no-save --no-restore \
-    -e "cat(Rcpp:::CxxFlags())" 2>NUL)
+RCPP_CFLAGS = $(shell Rscript.exe --no-save --no-restore -e "cat(Rcpp:::CxxFlags())")
 
 CXX_STD      = CXX11
 PKG_CXXFLAGS = $(RCPP_CFLAGS) $(SHLIB_OPENMP_CXXFLAGS)

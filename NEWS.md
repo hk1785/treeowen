@@ -1,37 +1,3 @@
-# treeowen 0.2.1
-
-## Bug fix
-
-* Fixed persistent `cpp=FALSE` error on macOS arm64:
-  - Changed `R_useDynamicSymbols(dll, FALSE)` to `TRUE` in
-    `src/RcppExports.cpp` so dynamic symbol lookup is allowed.
-    This removes the strict requirement that every `.Call()` name
-    must exactly match the `R_CallMethodDef` table entry, which was
-    causing `treeowen_ping` lookups to fail silently on some platforms.
-  - Updated `.onLoad()` and `.try_load_cpp()` to first call
-    `treeowen_ping()` via the `RcppExports.R` wrapper (the most
-    reliable path), then fall back to `_treeowen_treeowen_ping` and
-    `treeowen_ping` direct `.Call()` variants.
-
-# treeowen 0.2.1
-
-## Bug fix
-
-* Fixed `cpp=FALSE` / C++ XPtr missing error that persisted after v0.2.0.
-
-  **Root cause**: After `R_registerRoutines()` + `R_useDynamicSymbols(dll, FALSE)`,
-  all C symbols are registered under the `_treeowen_` prefix
-  (e.g. `_treeowen_treeowen_ping`). The `.onLoad` hook and `.try_load_cpp()`
-  were still calling `.Call("treeowen_ping")` (without the prefix), which
-  failed silently and set `cpp=FALSE`.
-
-  **Fix**:
-  - `zzz.R` `.onLoad`: now calls `.Call("_treeowen_treeowen_ping")` first,
-    with a fallback to the plain name.
-  - `R/utils.R` `.try_load_cpp()`: same two-step probe.
-  - `src/RcppExports.cpp` `CallEntries`: also registers `"treeowen_ping"`
-    as an alias so both calling conventions work.
-
 # treeowen 0.2.0
 
 ## Bug fixes

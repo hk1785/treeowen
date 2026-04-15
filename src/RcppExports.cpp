@@ -123,7 +123,6 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_treeowen_treeowen_ping", (DL_FUNC) &_treeowen_treeowen_ping, 0},
-    {"treeowen_ping",            (DL_FUNC) &_treeowen_treeowen_ping, 0},
     {"_treeowen_prepare_trees_xptr", (DL_FUNC) &_treeowen_prepare_trees_xptr, 1},
     {"_treeowen_popcount_table_cpp", (DL_FUNC) &_treeowen_popcount_table_cpp, 1},
     {"_treeowen_shapley_weights_cpp", (DL_FUNC) &_treeowen_shapley_weights_cpp, 1},
@@ -136,5 +135,5 @@ static const R_CallMethodDef CallEntries[] = {
 
 RcppExport void R_init_treeowen(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
-    R_useDynamicSymbols(dll, TRUE);
+    R_useDynamicSymbols(dll, FALSE);
 }

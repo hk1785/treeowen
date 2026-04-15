@@ -52,12 +52,6 @@ TREEOWEN_EXACT_ENUM_K_MAX <- 30L   # C++ d_minus < 30 제한
 # exists() is NOT reliable inside .onLoad (namespace not yet sealed);
 # .Call() on a registered name is the correct test.
 .onLoad <- function(libname, pkgname) {
-  # Probe the C++ shared library using .Call() directly.
-  # Do NOT call treeowen_ping() here — the package namespace is not yet
-  # sealed when .onLoad runs, so internal R-level wrappers are unreachable.
-  # With R_useDynamicSymbols(dll, TRUE) in R_init_treeowen, both the
-  # prefixed name "_treeowen_treeowen_ping" and the plain "treeowen_ping"
-  # are accessible via PACKAGE= lookup.
   ok <- tryCatch({
     .Call("treeowen_ping", PACKAGE = pkgname)
     TRUE

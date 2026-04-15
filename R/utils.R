@@ -33,8 +33,7 @@
 # confirm C availability (e.g. during R CMD check without compiled code).
 .try_load_cpp <- function() {
   if (.CPP_LOADED) return(.CPP_AVAILABLE)
-  # At this point the namespace IS sealed (called from treeowen() at runtime),
-  # so we can use .Call() with PACKAGE= to reach the registered C symbol.
+  # Probe the sentinel registered by useDynLib
   ok <- tryCatch({
     .Call("treeowen_ping", PACKAGE = "treeowen")
     TRUE

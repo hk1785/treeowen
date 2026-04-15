@@ -2,7 +2,7 @@
 
 Title: Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values
 
-Version: 0.1.3
+Version: 0.2.0
 
 Date: 2026-04-15
 
@@ -35,8 +35,12 @@ install.packages(c("xgboost", "lightgbm", "ranger", "treeshap",
 ## Installation
 
 ```r
-library(devtools)
-install_github("hk1785/treeowen", force = TRUE)
+# Install Rcpp first (required for C++ compilation)
+install.packages("Rcpp")
+
+# Install treeowen from GitHub
+install.packages("devtools")
+devtools::install_github("hk1785/treeowen")
 ```
 
 ---------------------------------------------------------------------------------------------------------------------------------------

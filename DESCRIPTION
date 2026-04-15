@@ -1,7 +1,7 @@
 Package: treeowen
 Type: Package
 Title: Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values
-Version: 0.1.6
+Version: 0.2.0
 Authors@R: person("Hyunwook", "Koh",
     email = "hyunwook.koh@stonybrook.edu",
     role  = c("aut", "cre"))
@@ -16,6 +16,7 @@ Description: Provides exact and Monte Carlo algorithms for computing Owen values
     Global importance measures and visualization tools (flat and hierarchical
     beeswarm plots) are also provided.
 
+Date: 2025-04-15
 License: MIT + file LICENSE
 SystemRequirements: C++11, Rcpp (>= 1.0.7)
 Encoding: UTF-8

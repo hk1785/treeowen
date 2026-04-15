@@ -192,21 +192,21 @@ library(treeowen)
  
 # ── Synthetic data ─────────────────────────────────────────────────────────
 set.seed(42)
-feat_names <- paste0("F", rep(1:5, times = 20), "G", rep(1:20, each = 5))
-X <- as.data.frame(matrix(rnorm(100 * 100), 100, 100,
+feat_names <- paste0("F", rep(1:5, times = 10), "G", rep(1:10, each = 5))
+X <- as.data.frame(matrix(rnorm(50 * 50), 50, 50,
                            dimnames = list(NULL, feat_names)))
 Y <- as.integer(0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2 > 0)
  
-# Feature partition: 20 groups of 5 features each
-groups <- setNames(lapply(1:20, function(k) paste0("F", 1:5, "G", k)),
-                   paste0("G", 1:20))
+# Feature partition: 10 groups of 5 features each
+groups <- setNames(lapply(1:10, function(k) paste0("F", 1:5, "G", k)),
+                   paste0("G", 1:10))
  
 # ── XGBoost ────────────────────────────────────────────────────────────────
 library(xgboost)
 model_xgb <- xgboost(xgb.DMatrix(as.matrix(X), label = Y),
                      nrounds = 100, max_depth = 3, eta = 0.1,
                      objective = "binary:logistic", verbose = 0)
-result_xgb <- treeowen(xgboost_unify_compat(model_xgb, X), X, groups)
+result_xgb <- treeowen(xgboost_unify_compat(model_xgb, X), X, groups, n_cores = 4L)
 print(result_xgb)
  
 # ── LightGBM ───────────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ model_lgb <- lgb.train(
                  max_depth = 3L, num_leaves = 7L, verbose = -1L),
   data    = lgb.Dataset(as.matrix(X), label = Y),
   nrounds = 100L, verbose = -1L)
-result_lgb <- treeowen(lightgbm_unify_compat(model_lgb, X), X, groups)
+result_lgb <- treeowen(lightgbm_unify_compat(model_lgb, X), X, groups, n_cores = 4L)
 print(result_lgb)
  
 # ── Ranger ─────────────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ library(ranger)
 model_rng <- ranger(.y ~ ., num.trees = 100L, max.depth = 3L,
                     probability = TRUE, keep.inbag = TRUE, seed = 42L,
                     data = cbind(X, .y = factor(Y, c(0,1), c("neg","pos"))))
-result_rng <- treeowen(ranger_unify_compat(model_rng, X), X, groups)
+result_rng <- treeowen(ranger_unify_compat(model_rng, X), X, groups, n_cores = 4L)
 print(result_rng)
 ```
 

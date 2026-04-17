@@ -208,8 +208,40 @@ treeowen_beeswarm <- function(
                                        ticks = FALSE))
   }
 
-  .common_theme <- function(hide_left_y = FALSE, hide_right_y = FALSE) {
-    th <- ggplot2::theme_bw() +
+  # Standalone horizontal colour-bar strip (same format as
+  # treeowen_hierarchical_beeswarm's colorbar). Used only in level="both".
+  .make_colorbar_strip <- function(label, lims) {
+    lims <- .safe_lims(lims)
+    xs    <- seq(lims[1], lims[2], length.out = 100)
+    df_cb <- data.frame(x = xs, y = 0.5)
+    ggplot2::ggplot(df_cb, ggplot2::aes(x = x, y = y, fill = x)) +
+      ggplot2::geom_tile(height = 0.5) +
+      ggplot2::scale_fill_gradient(
+        low    = col_low_a,
+        high   = col_high_a,
+        limits = lims,
+        oob    = .oob_squish,
+        guide  = "none") +
+      ggplot2::scale_x_continuous(
+        limits = lims,
+        expand = ggplot2::expansion(0),
+        breaks = lims,
+        labels = c("Low", "High")) +
+      ggplot2::scale_y_continuous(expand = ggplot2::expansion(0)) +
+      ggplot2::labs(x = label, y = NULL) +
+      ggplot2::theme_bw(base_size = 9) +
+      ggplot2::theme(
+        axis.text.y    = ggplot2::element_blank(),
+        axis.ticks.y   = ggplot2::element_blank(),
+        axis.text.x    = ggplot2::element_text(size = 7),
+        axis.title.x   = ggplot2::element_text(size = 8, hjust = 0.5),
+        panel.grid     = ggplot2::element_blank(),
+        panel.border   = ggplot2::element_blank(),
+        plot.margin    = ggplot2::margin(t = 2, r = 10, b = 2, l = 4))
+  }
+
+  .common_theme <- function() {
+    ggplot2::theme_bw() +
       ggplot2::theme(
         plot.title       = ggplot2::element_text(size = plot_title_size, face = "bold"),
         axis.title.x     = ggplot2::element_text(size = axis_title_x_size),
@@ -221,15 +253,6 @@ treeowen_beeswarm <- function(
         legend.box       = legend_direction, legend.box.just = "center",
         legend.text      = ggplot2::element_text(size = legend_text_size),
         legend.title     = ggplot2::element_text(size = legend_title_size))
-    if (hide_left_y)
-      th <- th + ggplot2::theme(
-        plot.margin = ggplot2::margin(t = margin_t, r = margin_r, b = margin_b, l = 2),
-        axis.text.y.left = ggplot2::element_blank(), axis.ticks.y.left = ggplot2::element_blank())
-    if (hide_right_y)
-      th <- th + ggplot2::theme(
-        plot.margin = ggplot2::margin(t = margin_t, r = 2, b = margin_b, l = margin_l),
-        axis.text.y.right = ggplot2::element_blank(), axis.ticks.y.right = ggplot2::element_blank())
-    th
   }
 
   .apply_top_n <- function(ordered_vec, top_n) {
@@ -319,23 +342,51 @@ treeowen_beeswarm <- function(
   if (level == "group")   return(p_grp)
 
   # ── both mode ────────────────────────────────────────────────────────────────
-  n_feat <- length(feat_ordered); n_grp <- length(grp_ordered)
+  # Layout: two beeswarm panels side-by-side, y-labels on the LEFT of each
+  # panel (no mirroring to the right). Internal ggplot legends are removed and
+  # replaced with standalone horizontal colour-bar strips underneath each
+  # panel, matching the style used by treeowen_hierarchical_beeswarm().
+  no_legend <- ggplot2::theme(legend.position = "none")
 
-  p_grp_b <- ggplot2::ggplot(df_glong, ggplot2::aes(x = owen_value, y = group, color = color_stat)) +
+  p_grp_b <- ggplot2::ggplot(df_glong,
+                 ggplot2::aes(x = owen_value, y = group, color = color_stat)) +
     .beeswarm_geom() + .color_scale(legend_label_grp, grp_lims) +
-    ggplot2::geom_vline(xintercept = 0, color = "grey40", linewidth = 0.4, linetype = "dashed") +
+    ggplot2::geom_vline(xintercept = 0, color = "grey40",
+                        linewidth = 0.4, linetype = "dashed") +
     ggplot2::labs(title = title_group, x = xlab_group, y = NULL, color = "") +
-    .common_theme(hide_right_y = TRUE)
+    .common_theme() + no_legend
 
-  p_feat_b <- ggplot2::ggplot(df_long, ggplot2::aes(x = owen_value, y = feature, color = feat_val)) +
+  p_feat_b <- ggplot2::ggplot(df_long,
+                 ggplot2::aes(x = owen_value, y = feature, color = feat_val)) +
     .beeswarm_geom() + .color_scale(legend_label_feat, feat_lims) +
-    ggplot2::geom_vline(xintercept = 0, color = "grey40", linewidth = 0.4, linetype = "dashed") +
+    ggplot2::geom_vline(xintercept = 0, color = "grey40",
+                        linewidth = 0.4, linetype = "dashed") +
     ggplot2::labs(title = title_feature, x = xlab_feature, y = NULL, color = "") +
-    ggplot2::scale_y_discrete(position = "right") + .common_theme(hide_left_y = TRUE)
+    .common_theme() + no_legend
 
-  # group | feature side-by-side (no connector panel)
-  combined <- (p_grp_b + p_feat_b) +
-    patchwork::plot_layout(widths = c(1, 1))
+  # Standalone colorbar strips (one per panel), centered at 70% width
+  cb_grp  <- .make_colorbar_strip(legend_label_grp,  grp_lims)
+  cb_feat <- .make_colorbar_strip(legend_label_feat, feat_lims)
+  cb_sp   <- patchwork::plot_spacer()
+  cb_grp_row  <- patchwork::wrap_plots(list(cb_sp, cb_grp,  cb_sp),
+                                       nrow = 1L, widths = c(0.15, 0.70, 0.15))
+  cb_feat_row <- patchwork::wrap_plots(list(cb_sp, cb_feat, cb_sp),
+                                       nrow = 1L, widths = c(0.15, 0.70, 0.15))
+
+  # Stack each panel on top of its own colorbar strip, then place the two
+  # stacked columns side-by-side.
+  body_h  <- 1.0            # relative beeswarm body height
+  strip_h <- 0.06           # relative colorbar strip height
+  col_grp_stack <- patchwork::wrap_plots(
+    list(p_grp_b,  cb_grp_row),
+    ncol = 1L, heights = c(body_h, strip_h))
+  col_feat_stack <- patchwork::wrap_plots(
+    list(p_feat_b, cb_feat_row),
+    ncol = 1L, heights = c(body_h, strip_h))
+
+  combined <- patchwork::wrap_plots(
+    list(col_grp_stack, col_feat_stack),
+    nrow = 1L, widths = c(1, 1))
 
   out <- list(combined = combined, feature = p_feat, group = p_grp,
               feat_ordered = feat_ordered, grp_ordered = grp_ordered)

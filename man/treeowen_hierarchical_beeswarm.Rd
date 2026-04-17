@@ -32,7 +32,7 @@ treeowen_hierarchical_beeswarm(
  grp_axis_size = 8.5,
  xlab = "Owen Value",
  show_colorbar = TRUE,
- colorbar_h = 0.35,
+ colorbar_h = 0.28,
  lname = "treeowen",
  save_path = NULL,
  dpi = 300L,
@@ -91,7 +91,7 @@ treeowen_hierarchical_beeswarm(
 \item{show_colorbar}{Logical. Append a standalone horizontal colour-bar
  strip at the bottom of each page. Default \code{TRUE}.}
 
-\item{colorbar_h}{Numeric. Colour-bar height (inches). Default \code{0.35}.}
+\item{colorbar_h}{Numeric. Colour-bar height (inches). Default \code{0.28}.}
 
 \item{lname}{Character. File-name prefix (used only when \code{save_path}
  is not \code{NULL}). Default \code{"treeowen"}.}

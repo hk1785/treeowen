@@ -41,7 +41,7 @@ A \code{model_unified} object suitable for \code{\link{treeowen}}.
 library(treeowen)
 library(ranger)
 
-library(ranger)
+## Train Ranger (probability = TRUE required) and unify for treeowen()
 df      <- cbind(X, .y = factor(Y))
 model   <- ranger(.y ~ ., data = df, num.trees = 100,
                   probability = TRUE, keep.inbag = TRUE)

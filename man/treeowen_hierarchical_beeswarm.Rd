@@ -145,60 +145,58 @@ via Owen Values. (In Review)
 }
 \examples{
 \dontrun{
-## ── Synthetic data + XGBoost (see ?treeowen for data setup) ─────────────────
-set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=20), "G", rep(1:20, each=5))
-X <- as.data.frame(matrix(rnorm(100*100), 100, 100, dimnames=list(NULL,feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
-Y <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:20, function(k) paste0("F",1:5,"G",k)), paste0("G",1:20))
-
 library(treeowen)
 library(xgboost)
 library(ggplot2)
-library(ggbeeswarm)  # required
-library(patchwork)   # required
-library(ggplot2); library(ggbeeswarm); library(patchwork)
-xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label=Y),
- nrounds = 50L, max_depth = 3L, eta = 0.1,
- objective = "binary:logistic", verbose = 0L)
-result <- treeowen(xgboost_unify_compat(xgb_mod, X), X, groups,
- method="auto", dp_progress=FALSE, verbose=FALSE)
+library(ggbeeswarm)   # required
+library(patchwork)    # required
 
-## ── Importance (type="both" required) ───────────────────────────────────────
+## Synthetic data: 10 groups of 5 features each, 50 observations
+set.seed(42)
+feat_names <- paste0("F", rep(1:5, times = 10), "G", rep(1:10, each = 5))
+X <- as.data.frame(matrix(rnorm(50 * 50), 50, 50,
+                          dimnames = list(NULL, feat_names)))
+Y <- as.integer(0.8 * X$F1G1 - 0.6 * X$F2G1 + 0.5 * X$F1G3 + 0.3 * X$F1G2 > 0)
+groups <- setNames(lapply(1:10, function(k) paste0("F", 1:5, "G", k)),
+                   paste0("G", 1:10))
+
+xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label = Y),
+                   nrounds = 50L, max_depth = 3L, eta = 0.1,
+                   objective = "binary:logistic", verbose = 0L)
+result <- treeowen(xgboost_unify_compat(xgb_mod, X), X, groups,
+                   method = "auto", dp_progress = FALSE, verbose = FALSE)
+
+## Importance (type = "both" required)
 imp <- treeowen_importance(result, type = "both")
 
-## ── Hierarchical beeswarm: return patchwork list ────────────────────────────
+## Hierarchical beeswarm: returns one patchwork per page
 pages <- treeowen_hierarchical_beeswarm(
- ow_result = result,
- imp = imp,
- top_n_group = 5L, # top 5 groups
- top_n_feature = NULL, # all features in those groups
- n_col = 2L,
- group_color_stat = "sum",
- show_colorbar = TRUE, # standalone colour-bar strip at bottom
- colorbar_h = 0.35,
- row_h_grp = 0.55,
- row_h_feat = 0.22,
- width_in = 10,
- max_h_per_page = 15,
- verbose = TRUE
+  ow_result     = result,
+  imp           = imp,
+  top_n_group   = 5L,       # top 5 groups
+  top_n_feature = NULL,     # all features in those groups
+  n_col         = 2L,
+  group_color_stat = "sum",
+  show_colorbar = TRUE,
+  width_in      = 10,
+  max_h_per_page = 15,
+  verbose       = TRUE
 )
 cat("Pages:", length(pages), "\n")
 print(pages[[1]])
 
-## ── Save to disk (PDF + PNG) ─────────────────────────────────────────────────
+## Save to disk (PDF + PNG)
 tmp_dir <- tempdir()
 treeowen_hierarchical_beeswarm(
- ow_result = result,
- imp = imp,
- top_n_group = 5L,
- n_col = 2L,
- width_in = 10,
- lname = "xgb_synthetic",
- save_path = tmp_dir,
- dpi = 150L,
- verbose = TRUE
+  ow_result  = result,
+  imp        = imp,
+  top_n_group = 5L,
+  n_col      = 2L,
+  width_in   = 10,
+  lname      = "xgb_synthetic",
+  save_path  = tmp_dir,
+  dpi        = 150L,
+  verbose    = TRUE
 )
 cat("Saved to:", tmp_dir, "\n")
 }

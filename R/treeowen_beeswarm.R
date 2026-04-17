@@ -1,7 +1,5 @@
 # treeowen/R/treeowen_beeswarm.R
 # Exported function: treeowen_beeswarm()
-# Renamed from treeowen_plot() in treeowen_main.R v5.14, L1972–2441.
-# All internal references to "treeowen_plot" updated to "treeowen_beeswarm".
 
 #' Beeswarm Plots of Owen Values (Feature and Group Level)
 #'

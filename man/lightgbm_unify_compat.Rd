@@ -37,7 +37,7 @@ A \code{model_unified} object suitable for \code{\link{treeowen}}.
 library(treeowen)
 library(lightgbm)
 
-library(lightgbm)
+## Train LightGBM and unify for treeowen()
 ds      <- lgb.Dataset(as.matrix(X), label = Y)
 model   <- lgb.train(list(objective = "binary"), ds, nrounds = 100,
                      verbose = -1L)

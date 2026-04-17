@@ -1,6 +1,5 @@
 # treeowen/R/treeowen.R
 # Main exported function: treeowen()
-# Source: treeowen_main.R v5.14, L1302–1586
 
 #' Compute Owen Values for Tree-Based Ensembles
 #'
@@ -237,9 +236,13 @@ treeowen <- function(unified_model, x, groups,
     list(phi = phi, base = base, vall = vall)
   }
 
-  make_chunk_worker <- function(allow_cpp, progress_n = NULL) {
+  # Worker factory. show_progress = TRUE is reserved for the first forked core
+  # so that a single progress bar (based on that core's chunk) is streamed to
+  # stderr. Other cores process a similar-sized chunk, so the displayed
+  # percentage is a reasonable proxy for overall progress.
+  make_chunk_worker <- function(allow_cpp, show_progress = FALSE) {
     local({
-      xptr_w <- NULL; done_w <- 0L
+      xptr_w <- NULL
       function(irows) {
         if (is.null(xptr_w)) {
           if (!allow_cpp)
@@ -261,11 +264,30 @@ treeowen <- function(unified_model, x, groups,
             inner_antithetic = inner_antithetic, target_se = target_se_inner,
             min_mc = min_inner_mc, max_mc = max_inner_mc,
             use_cpp = TRUE, trees_xptr = xptr_w)
-        lapply(irows, function(irow) {
+
+        # Child-side progress bar: written directly to stderr so it bypasses
+        # mclapply's stdout capture. Uses carriage-return to refresh in place.
+        n_rows    <- length(irows)
+        bar_width <- 40L
+        show_bar  <- isTRUE(show_progress) && n_rows > 0L
+        print_bar <- function(done) {
+          frac <- done / n_rows
+          n_fill <- as.integer(round(frac * bar_width))
+          bar <- paste0(strrep("=", n_fill),
+                        strrep(" ", bar_width - n_fill))
+          cat(sprintf("\r  [core-1] |%s| %d/%d (%3d%%)",
+                      bar, done, n_rows, as.integer(round(100 * frac))),
+              file = stderr())
+          if (done == n_rows) cat("\n", file = stderr())
+        }
+
+        out <- vector("list", n_rows)
+        for (li in seq_len(n_rows)) {
+          irow      <- irows[[li]]
           x_row_dbl <- as.numeric(x_mat[irow, ])
           base <- eval_v_knownset_cpp(xptr_w, x_row_dbl, integer(0),   as.integer(maxj))
           vall <- eval_v_knownset_cpp(xptr_w, x_row_dbl, all_cols_int, as.integer(maxj))
-          phi <- numeric(p)
+          phi  <- numeric(p)
           for (ctx in leaf_contexts) {
             solver_fn <- if (group_methods[ctx$g] == "exact") call_exact_solver else call_approx_solver
             phi <- phi + ctx$weight * solver_fn(ctx, x_row_dbl)
@@ -278,19 +300,17 @@ treeowen <- function(unified_model, x, groups,
                               if (!is_exact) " [MC approx or mixed; deviation expected]" else "",
                               lhs, rhs))
           }
-          if (!is.null(progress_n)) {
-            done_w <<- done_w + 1L
-            message(sprintf("  [core-0] %d / %d obs processed (~%d%% of total)",
-                            done_w, length(irows), round(100 * done_w / progress_n)))
-          }
-          list(phi = phi, base = base, vall = vall)
-        })
+          out[[li]] <- list(phi = phi, base = base, vall = vall)
+          if (show_bar) print_bar(li)
+        }
+        out
       }
     })
   }
 
+  show_par_progress       <- isTRUE(verbose) && isTRUE(dp_progress)
   compute_chunk_fork_1    <- make_chunk_worker(allow_cpp = cpp_ok,
-                                               progress_n = if (isTRUE(verbose)) n else NULL)
+                                               show_progress = show_par_progress)
   compute_chunk_fork_rest <- make_chunk_worker(allow_cpp = cpp_ok)
   compute_chunk_win       <- make_chunk_worker(allow_cpp = FALSE)
 

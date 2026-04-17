@@ -1,6 +1,5 @@
 # treeowen/R/treeowen_enumerators.R
 # Reference enumerator functions for testing and benchmarking.
-# Source: treeowen_main.R v5.14, L1596–1784
 
 #' Model-Agnostic Owen Value Enumerator (Reference Implementation)
 #'

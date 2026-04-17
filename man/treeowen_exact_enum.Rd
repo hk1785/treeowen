@@ -58,29 +58,31 @@ via Owen Values. (In Review)
 }
 \examples{
 \dontrun{
-## ── Small problem: K=2, n=5 ─────────────────────────────────────────────────
-set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=20), "G", rep(1:20, each=5))
-X <- as.data.frame(matrix(rnorm(100*100), 100, 100, dimnames=list(NULL,feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3
-Y <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:20, function(k) paste0("F",1:5,"G",k)), paste0("G",1:20))
-
 library(treeowen)
 library(xgboost)
-xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label=Y),
- nrounds = 50L, max_depth = 3L, eta = 0.1,
- objective = "binary:logistic", verbose = 0L)
+
+## Synthetic data: 10 groups of 5 features each, 50 observations
+set.seed(42)
+feat_names <- paste0("F", rep(1:5, times = 10), "G", rep(1:10, each = 5))
+X <- as.data.frame(matrix(rnorm(50 * 50), 50, 50,
+                          dimnames = list(NULL, feat_names)))
+Y <- as.integer(0.8 * X$F1G1 - 0.6 * X$F2G1 + 0.5 * X$F1G3 > 0)
+groups <- setNames(lapply(1:10, function(k) paste0("F", 1:5, "G", k)),
+                   paste0("G", 1:10))
+
+xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label = Y),
+                   nrounds = 50L, max_depth = 3L, eta = 0.1,
+                   objective = "binary:logistic", verbose = 0L)
 unified <- xgboost_unify_compat(xgb_mod, X)
 
-## treeowen_exact_enum requires a complete partition,
-## so we pass the full feature matrix but only 2 groups
+## Use a small subset to stay within the complexity budget of the
+## reference enumerator (K <= 5, |G_k| <= 5)
 small_x <- X[1:5, ]
-small_g <- groups[c("G1","G2")] # 2 groups, but x still has all 25 cols
+small_g <- groups[c("G1", "G2")]
 
-ref <- treeowen_exact_enum(unified, small_x, small_g, verbose=FALSE)
-main <- treeowen(unified, small_x, small_g, method="exact",
- dp_progress=FALSE, verbose=FALSE)
+ref  <- treeowen_exact_enum(unified, small_x, small_g, verbose = FALSE)
+main <- treeowen(unified, small_x, small_g, method = "exact",
+                 dp_progress = FALSE, verbose = FALSE)
 
 ## Results should match to floating-point precision
 max_diff <- max(abs(as.matrix(ref$owens) - as.matrix(main$owens)))

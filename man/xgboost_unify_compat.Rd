@@ -38,7 +38,7 @@ A \code{model_unified} object suitable for \code{\link{treeowen}}.
 library(treeowen)
 library(xgboost)
 
-library(xgboost)
+## Train XGBoost and unify for treeowen()
 dm      <- xgb.DMatrix(as.matrix(X), label = Y)
 model   <- xgboost(dm, nrounds = 100, objective = "binary:logistic",
                    verbose = 0)

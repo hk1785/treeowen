@@ -68,31 +68,35 @@ tree1 <- build_hierarchy_tree_from_layers(K = 5L, hierarchy = NULL)
 str(tree1, max.level = 2)
 
 ## Layer-matrix: 2-level hierarchy for 6 groups
-hier_mat <- matrix(c(1,1,2,2,3,3,
- 1,1,1,1,2,2), nrow=2, byrow=TRUE)
+hier_mat <- matrix(c(1, 1, 2, 2, 3, 3,
+                     1, 1, 1, 1, 2, 2), nrow = 2, byrow = TRUE)
 tree2 <- build_hierarchy_tree_from_layers(K = 6L, hierarchy = hier_mat)
 
-## Verify hierarchy-invariance of Owen values
+## Hierarchy-invariance demo using the first 5 groups of a synthetic dataset
 set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=20), "G", rep(1:20, each=5))
-X <- as.data.frame(matrix(rnorm(100*100), 100, 100, dimnames=list(NULL,feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3
-Y <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:20, function(k) paste0("F",1:5,"G",k)), paste0("G",1:20))
+feat_names <- paste0("F", rep(1:5, times = 10), "G", rep(1:10, each = 5))
+X <- as.data.frame(matrix(rnorm(50 * 50), 50, 50,
+                          dimnames = list(NULL, feat_names)))
+Y <- as.integer(0.8 * X$F1G1 - 0.6 * X$F2G1 + 0.5 * X$F1G3 > 0)
+groups <- setNames(lapply(1:10, function(k) paste0("F", 1:5, "G", k)),
+                   paste0("G", 1:10))
 
-library(xgboost); library(treeshap)
-xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label=Y),
- nrounds = 50L, max_depth = 3L, eta = 0.1,
- objective = "binary:logistic", verbose = 0L)
+xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label = Y),
+                   nrounds = 50L, max_depth = 3L, eta = 0.1,
+                   objective = "binary:logistic", verbose = 0L)
 unified <- xgboost_unify_compat(xgb_mod, X)
 
-## Layer-matrix hierarchy for 5 groups
-hier5 <- matrix(c(1,1,2,2,3), nrow=1) # {G1,G2}, {G3,G4}, {G5}
-tree5 <- build_hierarchy_tree_from_layers(K=5L, hierarchy=hier5)
-r_layer <- treeowen(unified, X, groups, method="exact",
- hierarchy=tree5, dp_progress=FALSE, verbose=FALSE)
-r_default <- treeowen(unified, X, groups, method="exact",
- dp_progress=FALSE, verbose=FALSE)
+## Layer-matrix hierarchy for 5 groups: {G1,G2}, {G3,G4}, {G5}
+g5    <- groups[1:5]
+hier5 <- matrix(c(1, 1, 2, 2, 3), nrow = 1)
+tree5 <- build_hierarchy_tree_from_layers(K = 5L, hierarchy = hier5)
+
+r_layer   <- treeowen(unified, X, g5, method = "exact",
+                      hierarchy = tree5,
+                      dp_progress = FALSE, verbose = FALSE)
+r_default <- treeowen(unified, X, g5, method = "exact",
+                      dp_progress = FALSE, verbose = FALSE)
+
 max_diff <- max(abs(as.matrix(r_layer$owens) - as.matrix(r_default$owens)))
 cat(sprintf("Max |layer - default| diff: %.2e\n", max_diff))
 stopifnot(max_diff < 1e-8)

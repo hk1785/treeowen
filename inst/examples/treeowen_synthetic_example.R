@@ -15,20 +15,20 @@ library(treeshap)
 ###############################################################################
 set.seed(42)
 
-# 100 features in 20 groups of 5
-feat_names <- paste0("F", rep(1:5, times = 20), "G", rep(1:20, each = 5))
+# 50 features in 10 groups of 5
+feat_names <- paste0("F", rep(1:5, times = 10), "G", rep(1:10, each = 5))
 X <- as.data.frame(
-  matrix(rnorm(100 * 100), 100, 100, dimnames = list(NULL, feat_names))
+  matrix(rnorm(50 * 50), 50, 50, dimnames = list(NULL, feat_names))
 )
 
-# Binary outcome driven mainly by G1 and G3
+# Binary outcome driven mainly by G1, G2 and G3
 log_odds <- 0.8 * X$F1G1 - 0.6 * X$F2G1 + 0.5 * X$F1G3 + 0.3 * X$F1G2
 Y <- as.integer(log_odds > 0)
 
-# Feature partition: 20 groups of 5 features each
+# Feature partition: 10 groups of 5 features each
 groups <- setNames(
-  lapply(1:20, function(k) paste0("F", 1:5, "G", k)),
-  paste0("G", 1:20)
+  lapply(1:10, function(k) paste0("F", 1:5, "G", k)),
+  paste0("G", 1:10)
 )
 
 cat(sprintf("Data: n=%d  p=%d  K=%d  Pr(Y=1)=%.2f\n",
@@ -55,7 +55,8 @@ result_xgb <- treeowen(
   x             = X,
   groups        = groups,
   method        = "auto",   # exact for |G_k| < 30, MC otherwise
-  dp_progress   = FALSE,
+  n_cores       = 4L,
+  dp_progress   = TRUE,
   verbose       = TRUE
 )
 print(result_xgb)
@@ -86,7 +87,7 @@ pages_xgb <- treeowen_hierarchical_beeswarm(
   ow_result     = result_xgb,
   imp           = imp_xgb,
   top_n_group   = 5L,
-  top_n_feature = 100L,
+  top_n_feature = 50L,
   n_col         = 2L,
   verbose       = TRUE
 )
@@ -122,7 +123,8 @@ result_lgb <- treeowen(
   x             = X,
   groups        = groups,
   method        = "auto",
-  dp_progress   = FALSE,
+  n_cores       = 4L,
+  dp_progress   = TRUE,
   verbose       = TRUE
 )
 print(result_lgb)
@@ -151,7 +153,7 @@ pages_lgb <- treeowen_hierarchical_beeswarm(
   ow_result     = result_lgb,
   imp           = imp_lgb,
   top_n_group   = 5L,
-  top_n_feature = 100L,
+  top_n_feature = 50L,
   n_col         = 2L,
   verbose       = TRUE
 )
@@ -188,7 +190,8 @@ result_rng <- treeowen(
   x             = X,
   groups        = groups,
   method        = "auto",
-  dp_progress   = FALSE,
+  n_cores       = 4L,
+  dp_progress   = TRUE,
   verbose       = TRUE
 )
 print(result_rng)
@@ -217,7 +220,7 @@ pages_rng <- treeowen_hierarchical_beeswarm(
   ow_result     = result_rng,
   imp           = imp_rng,
   top_n_group   = 5L,
-  top_n_feature = 100L,
+  top_n_feature = 50L,
   n_col         = 2L,
   verbose       = TRUE
 )

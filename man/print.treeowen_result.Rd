@@ -23,7 +23,10 @@ via Owen Values. (In Review)
 library(treeowen)
 library(xgboost)
 
-result <- treeowen(unified, X, groups, dp_progress=FALSE, verbose=FALSE)
+## Minimal setup (see ?treeowen for a full example)
+unified <- xgboost_unify_compat(xgb_model, X)
+result  <- treeowen(unified, X, groups,
+                    dp_progress = FALSE, verbose = FALSE)
 print(result)
 }
 }

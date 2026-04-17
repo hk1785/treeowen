@@ -1,5 +1,4 @@
 # treeowen/R/treeowen_importance.R
-# Source: treeowen_main.R v5.14, L1802–1932
 
 #' Compute Feature and Group Importance from Owen Values
 #'

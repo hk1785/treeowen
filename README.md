@@ -2,9 +2,9 @@
 
 Title: Efficient Game-Theoretic Explanations for Tree-Based Ensembles via Owen Values
 
-Version: 0.2.0
+Version: 0.2.3
 
-Date: 2026-04-15
+Date: 2026-04-17
 
 Author: Hyunwook Koh
 

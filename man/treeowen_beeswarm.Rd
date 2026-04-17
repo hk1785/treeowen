@@ -158,42 +158,41 @@ via Owen Values. (In Review)
 }
 \examples{
 \dontrun{
-## ── Synthetic data + XGBoost (see ?treeowen for data setup) ─────────────────
-set.seed(42)
-feat_names <- paste0("F", rep(1:5, times=20), "G", rep(1:20, each=5))
-X <- as.data.frame(matrix(rnorm(100*100), 100, 100, dimnames=list(NULL,feat_names)))
-log_odds <- 0.8*X$F1G1 - 0.6*X$F2G1 + 0.5*X$F1G3 + 0.3*X$F1G2
-Y <- as.integer(log_odds > 0)
-groups <- setNames(lapply(1:20, function(k) paste0("F",1:5,"G",k)), paste0("G",1:20))
-
 library(treeowen)
 library(xgboost)
 library(ggplot2)
-library(ggbeeswarm)  # for geom_quasirandom
-library(patchwork)   # required for level = "both"
-xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label=Y),
- nrounds = 50L, max_depth = 3L, eta = 0.1,
- objective = "binary:logistic", verbose = 0L)
-result <- treeowen(xgboost_unify_compat(xgb_mod, X), X, groups,
- method="auto", dp_progress=FALSE, verbose=FALSE)
+library(ggbeeswarm)   # for geom_quasirandom
+library(patchwork)    # required for level = "both"
 
-## ── Feature-level beeswarm ──────────────────────────────────────────────────
-p_feat <- treeowen_beeswarm(result, level = "feature", top_n_feature = 15L,
- xlab_feature = "Owen Value (XGBoost)")
+## Synthetic data: 10 groups of 5 features each, 50 observations
+set.seed(42)
+feat_names <- paste0("F", rep(1:5, times = 10), "G", rep(1:10, each = 5))
+X <- as.data.frame(matrix(rnorm(50 * 50), 50, 50,
+                          dimnames = list(NULL, feat_names)))
+Y <- as.integer(0.8 * X$F1G1 - 0.6 * X$F2G1 + 0.5 * X$F1G3 + 0.3 * X$F1G2 > 0)
+groups <- setNames(lapply(1:10, function(k) paste0("F", 1:5, "G", k)),
+                   paste0("G", 1:10))
+
+xgb_mod <- xgboost(data = xgb.DMatrix(as.matrix(X), label = Y),
+                   nrounds = 50L, max_depth = 3L, eta = 0.1,
+                   objective = "binary:logistic", verbose = 0L)
+result <- treeowen(xgboost_unify_compat(xgb_mod, X), X, groups,
+                   method = "auto", dp_progress = FALSE, verbose = FALSE)
+
+## Feature-level beeswarm (top 10 features)
+p_feat <- treeowen_beeswarm(result, level = "feature", top_n_feature = 10L)
 print(p_feat)
 
-## ── Group-level beeswarm ────────────────────────────────────────────────────
+## Group-level beeswarm (top 5 groups)
 p_grp <- treeowen_beeswarm(result, level = "group", top_n_group = 5L,
- group_color_stat = "sum")
+                           group_color_stat = "sum")
 print(p_grp)
 
-## ── Both panels (group | feature side-by-side) ─────────────────────────────
-## Requires patchwork
-library(patchwork)
+## Both panels side-by-side (requires patchwork)
 out <- treeowen_beeswarm(result, level = "both",
- top_n_feature = 10L, top_n_group = 5L)
-print(out$combined) # patchwork figure
-print(out$feature) # feature panel alone
-print(out$group) # group panel alone
+                         top_n_feature = 10L, top_n_group = 5L)
+print(out$combined)   # patchwork figure
+print(out$feature)    # feature panel alone
+print(out$group)      # group panel alone
 }
 }

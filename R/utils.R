@@ -1,28 +1,27 @@
 # treeowen/R/utils.R
 #
 # All internal helper functions (all "." prefixed, not exported unless noted).
-# Source: treeowen_main.R v5.14
 #
 # Sections
 # ─────────
-#  §1   Package / Rcpp helpers           L142–227
-#  §2   Progress & timing               L228–300
-#  §3   Shapley weight helpers           L302–309
-#  §4   Popcount helpers                 L315–337
-#  §5   Tree preparation                 L344–591
-#  §6   Input validation                 L598–620
-#  §7   Bitset helpers                   L627–665
-#  §8   Binary-tree builders (exported)  L672–754
-#  §9   Tree annotation & common prep    L744–792
-#  §10  Inner Shapley weight cache       L799–816
-#  §11  Inner Shapley solvers (exact)    L818–854, L1234–1259
-#  §12  Inner Shapley solvers (MC)       L1182–1296
-#  §13  Outer exact recursion            L860–915
-#  §14  Leaf-context precomputation      L924–994
-#  §15  Row-loop runners                 L1001–1149
-#  §16  Result constructor               L1151–1167
-#  §17  Miscellaneous                    L1174–1179
-#  §18  C++ / XPtr helpers               L206–221
+#  §1   Package / Rcpp helpers
+#  §2   Progress & timing
+#  §3   Shapley weight helpers
+#  §4   Popcount helpers
+#  §5   Tree preparation
+#  §6   Input validation
+#  §7   Bitset helpers
+#  §8   Binary-tree builders (exported)
+#  §9   Tree annotation & common prep
+#  §10  Inner Shapley weight cache
+#  §11  Inner Shapley solvers (exact)
+#  §12  Inner Shapley solvers (MC)
+#  §13  Outer exact recursion
+#  §14  Leaf-context precomputation
+#  §15  Row-loop runners
+#  §16  Result constructor
+#  §17  Miscellaneous
+#  §18  C++ / XPtr helpers
 
 # ── §1  Package / Rcpp helpers ───────────────────────────────────────────────
 

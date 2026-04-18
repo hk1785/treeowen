@@ -251,7 +251,7 @@ treeowen_hierarchical_beeswarm <- function(
     xs    <- seq(clim_lo, clim_hi, length.out = 100)
     df_cb <- data.frame(x = xs, y = 0.5)
     ggplot2::ggplot(df_cb, ggplot2::aes(x = x, y = y, fill = x)) +
-      ggplot2::geom_tile(height = 0.5) +
+      ggplot2::geom_tile(height = 0.2) +
       ggplot2::scale_fill_gradient(
         low    = col_lo_a,
         high   = col_hi_a,

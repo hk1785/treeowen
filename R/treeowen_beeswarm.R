@@ -212,14 +212,14 @@ treeowen_beeswarm <- function(
   # treeowen_hierarchical_beeswarm's colorbar). Used by all three levels
   # ("feature", "group", "both"); the ggplot internal legend is turned off
   # and this strip is placed beneath the beeswarm panel instead.
-  # geom_tile(height = 0.25) gives a visually compact strip (half the height
+  # geom_tile(height = 0.2) gives a visually compact strip (half the height
   # of the previous 0.5 value, in line with the overall 50% reduction).
   .make_colorbar_strip <- function(label, lims) {
     lims <- .safe_lims(lims)
     xs    <- seq(lims[1], lims[2], length.out = 100)
     df_cb <- data.frame(x = xs, y = 0.5)
     ggplot2::ggplot(df_cb, ggplot2::aes(x = x, y = y, fill = x)) +
-      ggplot2::geom_tile(height = 0.25) +
+      ggplot2::geom_tile(height = 0.2) +
       ggplot2::scale_fill_gradient(
         low    = col_low_a,
         high   = col_high_a,

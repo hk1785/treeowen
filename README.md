@@ -206,7 +206,7 @@ library(xgboost)
 model_xgb <- xgboost(xgb.DMatrix(as.matrix(X), label = Y),
                      nrounds = 100, max_depth = 3, eta = 0.1,
                      objective = "binary:logistic", verbose = 0)
-result_xgb <- treeowen(xgboost_unify_compat(model_xgb, X), X, groups, n_cores = 4L)
+result_xgb <- treeowen(xgboost_unify_compat(model_xgb, X), X, groups, n_cores = 1L)
 print(result_xgb)
  
 # ── LightGBM ───────────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ model_lgb <- lgb.train(
                  max_depth = 3L, num_leaves = 7L, verbose = -1L),
   data    = lgb.Dataset(as.matrix(X), label = Y),
   nrounds = 100L, verbose = -1L)
-result_lgb <- treeowen(lightgbm_unify_compat(model_lgb, X), X, groups, n_cores = 4L)
+result_lgb <- treeowen(lightgbm_unify_compat(model_lgb, X), X, groups, n_cores = 1L)
 print(result_lgb)
  
 # ── Ranger ─────────────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ library(ranger)
 model_rng <- ranger(.y ~ ., num.trees = 100L, max.depth = 3L,
                     probability = TRUE, keep.inbag = TRUE, seed = 42L,
                     data = cbind(X, .y = factor(Y, c(0,1), c("neg","pos"))))
-result_rng <- treeowen(ranger_unify_compat(model_rng, X), X, groups, n_cores = 4L)
+result_rng <- treeowen(ranger_unify_compat(model_rng, X), X, groups, n_cores = 1L)
 print(result_rng)
 ```
 
@@ -294,11 +294,11 @@ library(ggbeeswarm)  # for geom_quasirandom
 library(patchwork)   # required for level = "both"
 
 # result_xgb is produced by treeowen() — see Section 2 example above
-out.f   <- treeowen_beeswarm(result_xgb, level = "feature", top_n_feature = 10L)
 out.g   <- treeowen_beeswarm(result_xgb, level = "group", top_n_group = 10L)
+out.f   <- treeowen_beeswarm(result_xgb, level = "feature", top_n_feature = 10L)
 out.b   <- treeowen_beeswarm(result_xgb, level = "both", top_n_feature = 10L, top_n_group = 10L)
-print(out.b$feature)
 print(out.b$group)
+print(out.b$feature)
 print(out.b$combined)
 ```
 

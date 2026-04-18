@@ -47,7 +47,7 @@
 #' @param show_colorbar Logical. Append a standalone colour-bar strip at the
 #'   bottom of each page. Default \code{TRUE}.
 #' @param colorbar_h Numeric. Height (inches) of the colour-bar strip.
-#'   Default \code{0.28}.
+#'   Default \code{0.2}.
 #' @param lname Character. Prefix for output file names. Only used when
 #'   \code{save_path} is not \code{NULL}. Default \code{"treeowen"}.
 #' @param save_path Character or \code{NULL}. Directory for PDF/PNG output.
@@ -109,7 +109,7 @@ treeowen_hierarchical_beeswarm <- function(
     grp_axis_size    = 8.5,
     xlab             = "Owen Value",
     show_colorbar    = TRUE,
-    colorbar_h       = 0.28,
+    colorbar_h       = 0.2,
     lname            = "treeowen",
     save_path        = NULL,
     dpi              = 300L,

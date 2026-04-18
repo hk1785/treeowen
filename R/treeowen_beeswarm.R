@@ -189,7 +189,7 @@ treeowen_beeswarm <- function(
 
   .beeswarm_geom <- function() {
     if (has_beeswarm) {
-      ggbeeswarm::geom_quasirandom(groupOnX = TRUE, width = quasirandom_width,
+      ggbeeswarm::geom_quasirandom(orientation = "y", width = quasirandom_width,
                                     size = point_size, alpha = point_alpha)
     } else {
       ggplot2::geom_jitter(height = quasirandom_width, width = 0,
@@ -215,11 +215,16 @@ treeowen_beeswarm <- function(
   # geom_tile(height = 0.2) gives a visually compact strip (half the height
   # of the previous 0.5 value, in line with the overall 50% reduction).
   .make_colorbar_strip <- function(label, lims) {
-    lims <- .safe_lims(lims)
-    xs    <- seq(lims[1], lims[2], length.out = 100)
-    df_cb <- data.frame(x = xs, y = 0.5)
+    lims   <- .safe_lims(lims)
+    n_tile <- 100L
+    tile_w <- (lims[2] - lims[1]) / n_tile
+    # Place tile centers exactly one half-width inside each edge so that
+    # every tile fits within the panel limits (avoids the "Removed rows
+    # containing missing values" warning from geom_tile()).
+    xs     <- seq(lims[1] + tile_w / 2, lims[2] - tile_w / 2, length.out = n_tile)
+    df_cb  <- data.frame(x = xs, y = 0.5)
     ggplot2::ggplot(df_cb, ggplot2::aes(x = x, y = y, fill = x)) +
-      ggplot2::geom_tile(height = 0.2) +
+      ggplot2::geom_tile(height = 0.2, width = tile_w) +
       ggplot2::scale_fill_gradient(
         low    = col_low_a,
         high   = col_high_a,

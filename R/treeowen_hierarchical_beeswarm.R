@@ -213,7 +213,7 @@ treeowen_hierarchical_beeswarm <- function(
     bg  <- if (is_group) "grey92"       else "white"
 
     ggplot2::ggplot(df, ggplot2::aes(x = ov, y = y_fac, color = col)) +
-      ggbeeswarm::geom_quasirandom(groupOnX = FALSE, width = 0.35,
+      ggbeeswarm::geom_quasirandom(orientation = "y", width = 0.35,
                                     size = ps, alpha = point_alpha) +
       ggplot2::geom_vline(xintercept = 0, color = "grey50",
                           linewidth = 0.3, linetype = "dashed") +
@@ -248,10 +248,15 @@ treeowen_hierarchical_beeswarm <- function(
   # ── 8. standalone colorbar strip ──────────────────────────────────────────
   .make_colorbar_strip <- function() {
     col_leg_name <- "Value"
-    xs    <- seq(clim_lo, clim_hi, length.out = 100)
-    df_cb <- data.frame(x = xs, y = 0.5)
+    n_tile <- 100L
+    tile_w <- (clim_hi - clim_lo) / n_tile
+    # Place tile centers one half-width inside each edge so every tile
+    # fits within the panel limits (avoids the "Removed rows containing
+    # missing values" warning from geom_tile()).
+    xs     <- seq(clim_lo + tile_w / 2, clim_hi - tile_w / 2, length.out = n_tile)
+    df_cb  <- data.frame(x = xs, y = 0.5)
     ggplot2::ggplot(df_cb, ggplot2::aes(x = x, y = y, fill = x)) +
-      ggplot2::geom_tile(height = 0.2) +
+      ggplot2::geom_tile(height = 0.2, width = tile_w) +
       ggplot2::scale_fill_gradient(
         low    = col_lo_a,
         high   = col_hi_a,

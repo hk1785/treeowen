@@ -209,13 +209,17 @@ treeowen_beeswarm <- function(
   }
 
   # Standalone horizontal colour-bar strip (same format as
-  # treeowen_hierarchical_beeswarm's colorbar). Used only in level="both".
+  # treeowen_hierarchical_beeswarm's colorbar). Used by all three levels
+  # ("feature", "group", "both"); the ggplot internal legend is turned off
+  # and this strip is placed beneath the beeswarm panel instead.
+  # geom_tile(height = 0.25) gives a visually compact strip (half the height
+  # of the previous 0.5 value, in line with the overall 50% reduction).
   .make_colorbar_strip <- function(label, lims) {
     lims <- .safe_lims(lims)
     xs    <- seq(lims[1], lims[2], length.out = 100)
     df_cb <- data.frame(x = xs, y = 0.5)
     ggplot2::ggplot(df_cb, ggplot2::aes(x = x, y = y, fill = x)) +
-      ggplot2::geom_tile(height = 0.5) +
+      ggplot2::geom_tile(height = 0.25) +
       ggplot2::scale_fill_gradient(
         low    = col_low_a,
         high   = col_high_a,
@@ -237,7 +241,7 @@ treeowen_beeswarm <- function(
         axis.title.x   = ggplot2::element_text(size = 8, hjust = 0.5),
         panel.grid     = ggplot2::element_blank(),
         panel.border   = ggplot2::element_blank(),
-        plot.margin    = ggplot2::margin(t = 2, r = 10, b = 2, l = 4))
+        plot.margin    = ggplot2::margin(t = 1, r = 10, b = 1, l = 4))
   }
 
   .common_theme <- function() {
@@ -318,74 +322,61 @@ treeowen_beeswarm <- function(
                                             na.rm = TRUE, names = FALSE, type = 7))
   }
 
+  # Helper: stack a beeswarm panel on top of its standalone colorbar strip.
+  # Requires patchwork. Falls back to the raw ggplot (with internal legend)
+  # when patchwork is unavailable.
+  no_legend <- ggplot2::theme(legend.position = "none")
+
+  .with_colorbar_strip <- function(p_panel, label, lims) {
+    if (!has_patchwork) return(p_panel)                     # fallback: keep legend
+    cb_strip <- .make_colorbar_strip(label, lims)
+    cb_sp    <- patchwork::plot_spacer()
+    cb_row   <- patchwork::wrap_plots(list(cb_sp, cb_strip, cb_sp),
+                                      nrow = 1L,
+                                      widths = c(0.15, 0.70, 0.15))
+    # body : strip height ratio controls the vertical footprint of the
+    # colorbar underneath the beeswarm panel. strip_h = 0.03 corresponds to
+    # the 50% vertical reduction requested for all three level modes.
+    patchwork::wrap_plots(
+      list(p_panel + no_legend, cb_row),
+      ncol    = 1L,
+      heights = c(1.0, 0.03))
+  }
+
   # ── standalone feature beeswarm ───────────────────────────────────────────────
   p_feat <- NULL
   if (level %in% c("feature", "both")) {
-    p_feat <- ggplot2::ggplot(df_long, ggplot2::aes(x = owen_value, y = feature, color = feat_val)) +
+    p_feat_raw <- ggplot2::ggplot(df_long,
+                     ggplot2::aes(x = owen_value, y = feature, color = feat_val)) +
       .beeswarm_geom() + .color_scale(legend_label_feat, feat_lims) +
-      ggplot2::geom_vline(xintercept = 0, color = "grey40", linewidth = 0.4, linetype = "dashed") +
+      ggplot2::geom_vline(xintercept = 0, color = "grey40",
+                          linewidth = 0.4, linetype = "dashed") +
       ggplot2::labs(title = title_feature, x = xlab_feature, y = NULL, color = "") +
       .common_theme()
+    p_feat <- .with_colorbar_strip(p_feat_raw, legend_label_feat, feat_lims)
   }
 
   # ── standalone group beeswarm ────────────────────────────────────────────────
   p_grp <- NULL
   if (level %in% c("group", "both")) {
-    p_grp <- ggplot2::ggplot(df_glong, ggplot2::aes(x = owen_value, y = group, color = color_stat)) +
+    p_grp_raw <- ggplot2::ggplot(df_glong,
+                     ggplot2::aes(x = owen_value, y = group, color = color_stat)) +
       .beeswarm_geom() + .color_scale(legend_label_grp, grp_lims) +
-      ggplot2::geom_vline(xintercept = 0, color = "grey40", linewidth = 0.4, linetype = "dashed") +
+      ggplot2::geom_vline(xintercept = 0, color = "grey40",
+                          linewidth = 0.4, linetype = "dashed") +
       ggplot2::labs(title = title_group, x = xlab_group, y = NULL, color = "") +
       .common_theme()
+    p_grp <- .with_colorbar_strip(p_grp_raw, legend_label_grp, grp_lims)
   }
 
   if (level == "feature") return(p_feat)
   if (level == "group")   return(p_grp)
 
   # ── both mode ────────────────────────────────────────────────────────────────
-  # Layout: two beeswarm panels side-by-side, y-labels on the LEFT of each
-  # panel (no mirroring to the right). Internal ggplot legends are removed and
-  # replaced with standalone horizontal colour-bar strips underneath each
-  # panel, matching the style used by treeowen_hierarchical_beeswarm().
-  no_legend <- ggplot2::theme(legend.position = "none")
-
-  p_grp_b <- ggplot2::ggplot(df_glong,
-                 ggplot2::aes(x = owen_value, y = group, color = color_stat)) +
-    .beeswarm_geom() + .color_scale(legend_label_grp, grp_lims) +
-    ggplot2::geom_vline(xintercept = 0, color = "grey40",
-                        linewidth = 0.4, linetype = "dashed") +
-    ggplot2::labs(title = title_group, x = xlab_group, y = NULL, color = "") +
-    .common_theme() + no_legend
-
-  p_feat_b <- ggplot2::ggplot(df_long,
-                 ggplot2::aes(x = owen_value, y = feature, color = feat_val)) +
-    .beeswarm_geom() + .color_scale(legend_label_feat, feat_lims) +
-    ggplot2::geom_vline(xintercept = 0, color = "grey40",
-                        linewidth = 0.4, linetype = "dashed") +
-    ggplot2::labs(title = title_feature, x = xlab_feature, y = NULL, color = "") +
-    .common_theme() + no_legend
-
-  # Standalone colorbar strips (one per panel), centered at 70% width
-  cb_grp  <- .make_colorbar_strip(legend_label_grp,  grp_lims)
-  cb_feat <- .make_colorbar_strip(legend_label_feat, feat_lims)
-  cb_sp   <- patchwork::plot_spacer()
-  cb_grp_row  <- patchwork::wrap_plots(list(cb_sp, cb_grp,  cb_sp),
-                                       nrow = 1L, widths = c(0.15, 0.70, 0.15))
-  cb_feat_row <- patchwork::wrap_plots(list(cb_sp, cb_feat, cb_sp),
-                                       nrow = 1L, widths = c(0.15, 0.70, 0.15))
-
-  # Stack each panel on top of its own colorbar strip, then place the two
-  # stacked columns side-by-side.
-  body_h  <- 1.0            # relative beeswarm body height
-  strip_h <- 0.06           # relative colorbar strip height
-  col_grp_stack <- patchwork::wrap_plots(
-    list(p_grp_b,  cb_grp_row),
-    ncol = 1L, heights = c(body_h, strip_h))
-  col_feat_stack <- patchwork::wrap_plots(
-    list(p_feat_b, cb_feat_row),
-    ncol = 1L, heights = c(body_h, strip_h))
-
+  # Two panel-plus-colorbar stacks placed side-by-side. Each stack is the
+  # same structure as returned for level="feature" / level="group".
   combined <- patchwork::wrap_plots(
-    list(col_grp_stack, col_feat_stack),
+    list(p_grp, p_feat),
     nrow = 1L, widths = c(1, 1))
 
   out <- list(combined = combined, feature = p_feat, group = p_grp,

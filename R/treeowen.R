@@ -236,11 +236,10 @@ treeowen <- function(unified_model, x, groups,
     list(phi = phi, base = base, vall = vall)
   }
 
-  # Worker factory. show_progress = TRUE is reserved for the first forked core
-  # so that a single progress bar (based on that core's chunk) is streamed to
-  # stderr. Other cores process a similar-sized chunk, so the displayed
-  # percentage is a reasonable proxy for overall progress.
-  make_chunk_worker <- function(allow_cpp, show_progress = FALSE) {
+  # Chunked worker: processes a block of row indices. Used by
+  # .run_row_loop_parallel() for the doParallel/foreach (Windows) path and
+  # as the inner kernel for mclapply-based dispatch on Linux/macOS.
+  make_chunk_worker <- function(allow_cpp) {
     local({
       xptr_w <- NULL
       function(irows) {
@@ -265,24 +264,8 @@ treeowen <- function(unified_model, x, groups,
             min_mc = min_inner_mc, max_mc = max_inner_mc,
             use_cpp = TRUE, trees_xptr = xptr_w)
 
-        # Child-side progress bar: written directly to stderr so it bypasses
-        # mclapply's stdout capture. Uses carriage-return to refresh in place.
-        n_rows    <- length(irows)
-        bar_width <- 40L
-        show_bar  <- isTRUE(show_progress) && n_rows > 0L
-        print_bar <- function(done) {
-          frac <- done / n_rows
-          n_fill <- as.integer(round(frac * bar_width))
-          bar <- paste0(strrep("=", n_fill),
-                        strrep(" ", bar_width - n_fill))
-          cat(sprintf("\r  [core-1] |%s| %d/%d (%3d%%)",
-                      bar, done, n_rows, as.integer(round(100 * frac))),
-              file = stderr())
-          if (done == n_rows) cat("\n", file = stderr())
-        }
-
-        out <- vector("list", n_rows)
-        for (li in seq_len(n_rows)) {
+        out <- vector("list", length(irows))
+        for (li in seq_along(irows)) {
           irow      <- irows[[li]]
           x_row_dbl <- as.numeric(x_mat[irow, ])
           base <- eval_v_knownset_cpp(xptr_w, x_row_dbl, integer(0),   as.integer(maxj))
@@ -301,24 +284,29 @@ treeowen <- function(unified_model, x, groups,
                               lhs, rhs))
           }
           out[[li]] <- list(phi = phi, base = base, vall = vall)
-          if (show_bar) print_bar(li)
         }
         out
       }
     })
   }
 
-  show_par_progress       <- isTRUE(verbose) && isTRUE(dp_progress)
-  compute_chunk_fork_1    <- make_chunk_worker(allow_cpp = cpp_ok,
-                                               show_progress = show_par_progress)
-  compute_chunk_fork_rest <- make_chunk_worker(allow_cpp = cpp_ok)
+  # Per-row worker (wraps a single index). Used by pbmcapply-based dispatch
+  # on Linux/macOS where each row is its own mclapply task so the progress
+  # bar increments for every row.
+  make_row_worker <- function(allow_cpp) {
+    chunk_w <- make_chunk_worker(allow_cpp)
+    function(irow) chunk_w(irow)[[1L]]
+  }
+
+  compute_chunk_fork      <- make_chunk_worker(allow_cpp = cpp_ok)
+  compute_row_fork        <- make_row_worker(allow_cpp = cpp_ok)
   compute_chunk_win       <- make_chunk_worker(allow_cpp = FALSE)
 
   phase_tag <- if (effective_method == "exact") "DP" else if (effective_method == "approx") "MC" else "DP/MC"
   lr <- .run_row_loop(n,
                       compute_one_row_serial  = compute_one_row,
-                      compute_chunk_fork_1    = compute_chunk_fork_1,
-                      compute_chunk_fork_rest = compute_chunk_fork_rest,
+                      compute_row_fork        = compute_row_fork,
+                      compute_chunk_fork      = compute_chunk_fork,
                       compute_chunk_win       = compute_chunk_win,
                       n_cores = n_cores, verbose = verbose,
                       dp_progress = dp_progress, dp_print_every = dp_print_every,

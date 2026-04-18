@@ -866,72 +866,98 @@ clear_inner_enum_cache <- function() {
   list(ow = ow, basev = basev, vallv = vallv)
 }
 
-.run_row_loop_parallel <- function(n, compute_chunk_fork_1, compute_chunk_fork_rest,
+.run_row_loop_parallel <- function(n, compute_row_fork, compute_chunk_fork,
                                    compute_chunk_win,
-                                   n_cores, verbose,
+                                   n_cores, verbose, dp_progress = TRUE,
                                    phase_tag = "DP",
                                    cpp_available = FALSE) {
-  chunk_ids <- vector("list", n_cores)
-  base_size <- n %/% n_cores; remainder <- n %% n_cores; cur <- 1L
-  for (ci in seq_len(n_cores)) {
-    sz <- base_size + if (ci <= remainder) 1L else 0L
-    if (sz > 0L) chunk_ids[[ci]] <- seq(cur, cur + sz - 1L)
-    cur <- cur + sz
+  t0       <- proc.time()[[3]]
+  is_unix  <- .Platform$OS.type != "windows"
+  has_pbmc <- .pkg_ok("pbmcapply")
+  show_bar <- isTRUE(verbose) && isTRUE(dp_progress)
+
+  if (isTRUE(verbose)) {
+    cat(sprintf("[%s] Parallel: %d obs | %d cores | %s\n", phase_tag, n, n_cores,
+                if (is_unix && has_pbmc && show_bar)   "pbmcapply (progress bar)"
+                else if (is_unix)                      "mclapply (no progress bar)"
+                else                                   "doParallel/foreach"))
   }
-  chunk_ids <- Filter(Negate(is.null), chunk_ids)
-  n_chunks  <- length(chunk_ids)
-  t0 <- proc.time()[[3]]
-  if (isTRUE(verbose))
-    cat(sprintf("[%s] Parallel: %d obs | %d cores | ~%d obs/core\n",
-                phase_tag, n, n_chunks, ceiling(n / n_chunks)))
-  use_mclapply <- (.Platform$OS.type != "windows") && .pkg_ok("parallel")
-  if (use_mclapply) {
-    workers <- c(list(compute_chunk_fork_1),
-                 rep(list(compute_chunk_fork_rest), max(0L, n_chunks - 1L)))
-    chunk_results <- parallel::mclapply(
-      seq_len(n_chunks),
-      function(ci) workers[[ci]](chunk_ids[[ci]]),
-      mc.cores    = min(n_cores, n_chunks),
-      mc.set.seed = TRUE
-    )
-    failed <- vapply(chunk_results, inherits, logical(1L), "try-error")
+
+  ow <- NULL; basev <- numeric(n); vallv <- numeric(n)
+
+  # ── Unix/macOS: pbmcapply first, then mclapply, all per-row ────────────────
+  if (is_unix && .pkg_ok("parallel")) {
+    if (has_pbmc && show_bar) {
+      # pbmcapply::pbmclapply streams a real progress bar to the terminal
+      # from the parent process (it forks children, then monitors their
+      # completion via a pipe — works in terminal R, RStudio, and shell).
+      row_results <- pbmcapply::pbmclapply(
+        seq_len(n), compute_row_fork,
+        mc.cores    = n_cores,
+        mc.set.seed = TRUE,
+        ignore.interactive = TRUE)
+    } else {
+      row_results <- parallel::mclapply(
+        seq_len(n), compute_row_fork,
+        mc.cores    = n_cores,
+        mc.set.seed = TRUE)
+    }
+    failed <- vapply(row_results, inherits, logical(1L), "try-error")
     if (any(failed)) {
-      warning(sprintf("[TreeOwen] %d/%d parallel chunks failed; retrying serially.",
-                      sum(failed), n_chunks))
-      for (ci in which(failed))
-        chunk_results[[ci]] <- compute_chunk_fork_rest(chunk_ids[[ci]])
+      warning(sprintf("[TreeOwen] %d/%d parallel rows failed; retrying serially.",
+                      sum(failed), n))
+      for (irow in which(failed))
+        row_results[[irow]] <- compute_row_fork(irow)
+    }
+    for (irow in seq_len(n)) {
+      rr <- row_results[[irow]]
+      if (is.null(ow)) ow <- matrix(0, n, length(rr$phi))
+      ow[irow, ] <- rr$phi; basev[irow] <- rr$base; vallv[irow] <- rr$vall
     }
   } else if (.pkg_ok("foreach") && .pkg_ok("doParallel")) {
+    # ── Windows: doParallel cluster with chunked dispatch ────────────────────
+    chunk_ids <- vector("list", n_cores)
+    base_size <- n %/% n_cores; remainder <- n %% n_cores; cur <- 1L
+    for (ci in seq_len(n_cores)) {
+      sz <- base_size + if (ci <= remainder) 1L else 0L
+      if (sz > 0L) chunk_ids[[ci]] <- seq(cur, cur + sz - 1L)
+      cur <- cur + sz
+    }
+    chunk_ids <- Filter(Negate(is.null), chunk_ids)
     cl <- parallel::makeCluster(n_cores); doParallel::registerDoParallel(cl)
     on.exit({ parallel::stopCluster(cl); foreach::registerDoSEQ() }, add = TRUE)
     `%dopar%` <- foreach::`%dopar%`
     chunk_results <- foreach::foreach(irows = chunk_ids) %dopar% compute_chunk_win(irows)
+    for (ci in seq_along(chunk_ids)) {
+      chunk_rr <- chunk_results[[ci]]
+      for (li in seq_along(chunk_ids[[ci]])) {
+        irow <- chunk_ids[[ci]][[li]]; rr <- chunk_rr[[li]]
+        if (is.null(ow)) ow <- matrix(0, n, length(rr$phi))
+        ow[irow, ] <- rr$phi; basev[irow] <- rr$base; vallv[irow] <- rr$vall
+      }
+    }
   } else {
     if (isTRUE(verbose)) message("[TreeOwen] parallel packages unavailable; using serial.")
-    chunk_results <- lapply(chunk_ids, compute_chunk_fork_rest)
-  }
-  if (isTRUE(verbose)) {
-    elapsed_sec <- proc.time()[[3]] - t0
-    cat(sprintf("[%s] %d/%d observations complete | %d cores | elapsed=%s\n",
-                phase_tag, n, n, n_chunks, .fmt_hms(elapsed_sec)))
-  }
-  ow <- NULL; basev <- numeric(n); vallv <- numeric(n)
-  for (ci in seq_along(chunk_ids)) {
-    chunk_rr <- chunk_results[[ci]]
-    for (li in seq_along(chunk_ids[[ci]])) {
-      irow <- chunk_ids[[ci]][[li]]; rr <- chunk_rr[[li]]
+    for (irow in seq_len(n)) {
+      rr <- compute_row_fork(irow)
       if (is.null(ow)) ow <- matrix(0, n, length(rr$phi))
       ow[irow, ] <- rr$phi; basev[irow] <- rr$base; vallv[irow] <- rr$vall
     }
+  }
+
+  if (isTRUE(verbose)) {
+    elapsed_sec <- proc.time()[[3]] - t0
+    cat(sprintf("[%s] %d/%d observations complete | %d cores | elapsed=%s\n",
+                phase_tag, n, n, n_cores, .fmt_hms(elapsed_sec)))
   }
   list(ow = ow, basev = basev, vallv = vallv)
 }
 
 .run_row_loop <- function(n,
                           compute_one_row_serial,
-                          compute_chunk_fork_1    = NULL,
-                          compute_chunk_fork_rest = NULL,
-                          compute_chunk_win       = NULL,
+                          compute_row_fork   = NULL,
+                          compute_chunk_fork = NULL,
+                          compute_chunk_win  = NULL,
                           n_cores,
                           verbose, dp_progress, dp_print_every, dp_newline_every,
                           eta_alpha, K, chunk_size_inner, chunk_cap,
@@ -942,10 +968,11 @@ clear_inner_enum_cache <- function() {
                          dp_newline_every, eta_alpha, K, chunk_size_inner, chunk_cap, phase_tag)
   else
     .run_row_loop_parallel(n,
-                           compute_chunk_fork_1    = compute_chunk_fork_1,
-                           compute_chunk_fork_rest = compute_chunk_fork_rest,
-                           compute_chunk_win       = compute_chunk_win,
+                           compute_row_fork   = compute_row_fork,
+                           compute_chunk_fork = compute_chunk_fork,
+                           compute_chunk_win  = compute_chunk_win,
                            n_cores = n_cores, verbose = verbose,
+                           dp_progress = dp_progress,
                            phase_tag = phase_tag, cpp_available = cpp_available)
 }
 
@@ -1662,9 +1689,33 @@ ranger_treeinfo_norm <- function(df, feature_names) {
   left_r  <- resolve_r(lc)
   right_r <- resolve_r(rc)
 
-  # prediction (leaf probability for class 1 in probability forest)
+  # prediction (leaf probability for class 1 in probability forest).
+  # ranger::treeInfo() names these columns after factor levels, e.g.
+  #   - factor levels 0/1   -> columns pred.0, pred.1
+  #   - factor levels neg/pos -> columns pred.neg, pred.pos
+  #   - regression forests  -> column prediction
+  # After flattening "[._]" to lowercase, these become predN, predneg/predpos,
+  # and prediction respectively. We need to pick the *second* pred* column
+  # (the positive class) because ranger stores levels in factor order and
+  # class 1 is the second level by convention.
   pred <- NULL
-  for (c in c("prediction", "pred.1", "pred1", "nodeprediction")) if (c %in% nms) { pred <- df[[c]]; break }
+  # First try any explicit regression-style name
+  for (c in c("prediction", "nodeprediction"))
+    if (c %in% nms) { pred <- df[[c]]; break }
+  if (is.null(pred)) {
+    # Classification probability forest: look for all columns starting with
+    # "pred" that are not the splitvar-prediction-id. Pick the last such
+    # column as the class-1 probability (ranger's column order matches the
+    # factor levels order, so the last pred* column is the positive class).
+    pred_cands <- grep("^pred[^i]", nms, value = TRUE)   # excludes "predictionid" if any
+    pred_cands <- setdiff(pred_cands, c("prediction", "nodeprediction"))
+    if (length(pred_cands) >= 2L) {
+      # Two-class probability forest: take the last column (class 1)
+      pred <- df[[pred_cands[length(pred_cands)]]]
+    } else if (length(pred_cands) == 1L) {
+      pred <- df[[pred_cands[1L]]]
+    }
+  }
   if (is.null(pred)) pred <- rep(NA_real_, nrow(df))
   if (is.list(pred)) {
     pred <- vapply(pred, function(v) {

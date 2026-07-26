@@ -21,7 +21,7 @@
 #'   \code{unified_model}.
 #' @param method Character. One of \code{"auto"} (default), \code{"exact"}, or
 #'   \code{"approx"}. When \code{"auto"}, the exact algorithm is used for
-#'   groups with \code{|G_k| < auto_exact_max_m} and Monte Carlo for larger
+#'   groups with \code{|G_k| <= auto_exact_max_m} and Monte Carlo for larger
 #'   groups.
 #' @param hierarchy Controls the auxiliary binary tree \eqn{\mathcal{B}} over
 #'   groups. Accepted values:
@@ -41,16 +41,16 @@
 #' @param min_inner_mc Integer. Minimum number of MC pairs per group context.
 #'   Default \code{32L}.
 #' @param max_inner_mc Integer. Maximum number of MC pairs per group context.
-#'   Default \code{512L}.
+#'   Default \code{1024L}.
 #' @param chunk_size_inner Integer. Chunk size for batched inner evaluation.
 #'   Default \code{131072L}.
 #' @param max_bytes Numeric. Memory limit (bytes) for inner evaluation batches.
 #'   Default \code{512 * 1024^2} (512 MB).
 #' @param inner_bitmask_max Integer. Maximum group size for bitmask-based exact
 #'   enumeration. Default \code{TREEOWEN_INNER_BITMASK_DEFAULT} (60).
-#' @param auto_exact_max_m Integer. Groups with \code{|G_k| >= auto_exact_max_m}
-#'   use Monte Carlo when \code{method = "auto"}. Default
-#'   \code{TREEOWEN_AUTO_EXACT_MAX_M} (30).
+#' @param auto_exact_max_m Integer. Groups with \code{|G_k| <= auto_exact_max_m}
+#'   use exact enumeration when \code{method = "auto"}; larger groups use Monte
+#'   Carlo. Default \code{TREEOWEN_AUTO_EXACT_MAX_M} (15).
 #' @param check_efficiency Logical. Check the Owen value efficiency axiom after
 #'   computation. Default \code{FALSE}.
 #' @param efficiency_tol Numeric. Tolerance for the efficiency check.
@@ -108,7 +108,7 @@ treeowen <- function(unified_model, x, groups,
                      inner_antithetic   = TRUE,
                      target_se_inner    = 1e-3,
                      min_inner_mc       = 32L,
-                     max_inner_mc       = 512L,
+                     max_inner_mc       = 1024L,
                      chunk_size_inner   = 131072L,
                      max_bytes          = 512 * 1024^2,
                      inner_bitmask_max  = TREEOWEN_INNER_BITMASK_DEFAULT,
@@ -144,7 +144,7 @@ treeowen <- function(unified_model, x, groups,
   group_sizes <- vapply(group_pos, length, integer(1L))
 
   group_methods <- if (method == "auto") {
-    ifelse(group_sizes >= as.integer(auto_exact_max_m), "approx", "exact")
+    ifelse(group_sizes > as.integer(auto_exact_max_m), "approx", "exact")
   } else {
     rep(method, K)
   }
@@ -162,14 +162,14 @@ treeowen <- function(unified_model, x, groups,
       n, p, K, method, effective_method, cpp_ok, as.integer(n_cores)))
     if (effective_method == "mixed")
       message(sprintf(
-        "[TreeOwen] per-group methods: %d exact (|G_k| < %d), %d approx (|G_k| >= %d)",
+        "[TreeOwen] per-group methods: %d exact (|G_k| <= %d), %d approx (|G_k| > %d)",
         n_exact_groups, as.integer(auto_exact_max_m),
         n_approx_groups, as.integer(auto_exact_max_m)))
   }
 
   n_inner_mc   <- as.integer(n_inner_mc);   if (!is.finite(n_inner_mc)   || n_inner_mc   <= 0L) n_inner_mc   <- 64L
   min_inner_mc <- as.integer(min_inner_mc); if (!is.finite(min_inner_mc) || min_inner_mc <= 0L) min_inner_mc <- 32L
-  max_inner_mc <- as.integer(max_inner_mc); if (!is.finite(max_inner_mc) || max_inner_mc < min_inner_mc) max_inner_mc <- max(min_inner_mc, 512L)
+  max_inner_mc <- as.integer(max_inner_mc); if (!is.finite(max_inner_mc) || max_inner_mc < min_inner_mc) max_inner_mc <- max(min_inner_mc, 1024L)
 
   trees_xptr_cache <- if (cpp_ok) .prepare_trees_xptr_once(dp_model) else NULL
 

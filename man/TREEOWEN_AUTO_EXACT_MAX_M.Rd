@@ -2,17 +2,21 @@
 \alias{TREEOWEN_AUTO_EXACT_MAX_M}
 \title{Exact/Monte Carlo Switching Threshold}
 \description{
-An exported integer constant equal to \code{30L}. When
+An exported integer constant equal to \code{15L}. When
 \code{\link{treeowen}} is called with \code{method = "auto"}, groups with
-the group size >= \code{TREEOWEN_AUTO_EXACT_MAX_M} use Monte Carlo; smaller
-groups use exact enumeration.
+the group size <= \code{TREEOWEN_AUTO_EXACT_MAX_M} use exact enumeration;
+larger groups use Monte Carlo.
 }
-\format{An integer scalar (\code{30L}).}
+\format{An integer scalar (\code{15L}).}
 \details{
-The value 30 reflects the R-integer bitmask exact path, which operates on
-30-bit integers. The C++ bitmask path supports up to
+Under the default threshold of 15, groups with the group size <= 15 are
+evaluated using the exact algorithm, whereas groups with the group size > 15
+are evaluated using the Monte Carlo algorithm.
+
+The exact path itself is not limited to 15: the R-integer bitmask path
+operates on 30-bit integers and the C++ bitmask path supports up to
 \code{\link{TREEOWEN_INNER_BITMASK_DEFAULT}} (60), so \code{method = "exact"}
-can still be forced for 30 <= the group size <= 60.
+can still be forced for 15 < the group size <= 60.
 
 Override per call:
 \preformatted{result <- treeowen(unified, X, groups,
@@ -27,5 +31,5 @@ via Owen Values. (In Review)
 \code{\link{treeowen}}, \code{\link{TREEOWEN_INNER_BITMASK_DEFAULT}}
 }
 \examples{
-TREEOWEN_AUTO_EXACT_MAX_M # 30L
+TREEOWEN_AUTO_EXACT_MAX_M # 15L
 }

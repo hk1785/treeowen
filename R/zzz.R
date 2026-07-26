@@ -9,12 +9,13 @@
 #' @title Auto-Switching Threshold for Exact vs Monte Carlo
 #'
 #' Default threshold used by \code{\link{treeowen}} when
-#' \code{method = "auto"}: groups with \eqn{|G_k| \geq}
-#' \code{TREEOWEN_AUTO_EXACT_MAX_M} use Monte Carlo; smaller groups use exact.
+#' \code{method = "auto"}: groups with \eqn{|G_k| \leq}
+#' \code{TREEOWEN_AUTO_EXACT_MAX_M} use exact enumeration; larger groups use
+#' Monte Carlo.
 #'
-#' @format An integer scalar (\code{30L}).
+#' @format An integer scalar (\code{15L}).
 #' @export
-TREEOWEN_AUTO_EXACT_MAX_M <- 30L
+TREEOWEN_AUTO_EXACT_MAX_M <- 15L
 
 #' Bitmask Limit for the Exact Inner Enumerator
 #'

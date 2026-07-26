@@ -138,7 +138,7 @@ treeowen(
   inner_antithetic  = TRUE,
   target_se_inner   = 1e-3,
   min_inner_mc      = 32L,
-  max_inner_mc      = 512L,
+  max_inner_mc      = 1024L,
   chunk_size_inner  = 131072L,
   max_bytes         = 512 * 1024^2,
   inner_bitmask_max = TREEOWEN_INNER_BITMASK_DEFAULT,
@@ -161,11 +161,11 @@ treeowen(
 
 `groups` — Named list of character vectors. Each element names the features belonging to that group. Every feature in `x` must appear in exactly one group (a full partition is required).
 
-`method` — How to compute Owen values. `"auto"` uses the exact algorithm for groups with fewer features than `auto_exact_max_m` and Monte Carlo for larger groups. `"exact"` always uses exact. `"approx"` always uses Monte Carlo.
+`method` — How to compute Owen values. `"auto"` uses the exact algorithm for groups with at most `auto_exact_max_m` features and Monte Carlo for larger groups. With the default `auto_exact_max_m = 15L`, groups with `|G_k| <= 15` are computed exactly and groups with `|G_k| > 15` by Monte Carlo. `"exact"` always uses exact. `"approx"` always uses Monte Carlo.
 
 `hierarchy` — Structure of the auxiliary binary tree over groups. `NULL` (default) builds a balanced binary tree. Accepts a nested list or a matrix for custom structures. Does not affect the correctness of results, only computation speed.
 
-`n_inner_mc`, `min_inner_mc`, `max_inner_mc`, `target_se_inner` — Control the number of Monte Carlo samples when using the approximate method.
+`n_inner_mc`, `min_inner_mc`, `max_inner_mc`, `target_se_inner` — Control the number of Monte Carlo samples when using the approximate method. Defaults: 64 inner permutations, bounds [32, 1024], target standard error 1e-3.
 
 `n_cores` — Number of CPU cores. Values greater than 1 use `parallel::mclapply()` on Linux and macOS. On Windows, keep this at 1.
 

@@ -674,7 +674,7 @@ clear_inner_enum_cache <- function() {
     inner_antithetic = TRUE,
     target_se        = NA_real_,
     min_mc           = 32L,
-    max_mc           = 512L,
+    max_mc           = 1024L,
     use_cpp          = FALSE,
     trees_xptr       = NULL
 ) {
@@ -691,7 +691,7 @@ clear_inner_enum_cache <- function() {
   outer_known_cols <- unique(outer_known_cols)
   n_inner_mc <- as.integer(n_inner_mc); if (!is.finite(n_inner_mc) || n_inner_mc <= 0L) n_inner_mc <- 64L
   min_mc     <- as.integer(min_mc);     if (!is.finite(min_mc)     || min_mc     <= 0L) min_mc     <- 32L
-  max_mc     <- as.integer(max_mc);     if (!is.finite(max_mc)     || max_mc < min_mc)  max_mc     <- max(min_mc, 512L)
+  max_mc     <- as.integer(max_mc);     if (!is.finite(max_mc)     || max_mc < min_mc)  max_mc     <- max(min_mc, 1024L)
   if (!use_cpp || !.CPP_AVAILABLE || is.null(trees_xptr) ||
       !exists("inner_mc_perm_cpp", mode = "function"))
     stop("[TreeOwen] inner_mc_perm_cpp unavailable. Ensure C++ is loaded.")
@@ -716,7 +716,7 @@ clear_inner_enum_cache <- function() {
     inner_antithetic = TRUE,
     target_se        = NA_real_,
     min_mc           = 32L,
-    max_mc           = 512L,
+    max_mc           = 1024L,
     use_cpp          = FALSE,
     trees_xptr       = NULL
 ) {
@@ -724,7 +724,7 @@ clear_inner_enum_cache <- function() {
   m     <- length(feats); if (m == 0L) return(numeric(p))
   n_inner_mc <- as.integer(n_inner_mc); if (!is.finite(n_inner_mc) || n_inner_mc <= 0L) n_inner_mc <- 64L
   min_mc     <- as.integer(min_mc);     if (!is.finite(min_mc)     || min_mc     <= 0L) min_mc     <- 32L
-  max_mc     <- as.integer(max_mc);     if (!is.finite(max_mc)     || max_mc < min_mc)  max_mc     <- max(min_mc, 512L)
+  max_mc     <- as.integer(max_mc);     if (!is.finite(max_mc)     || max_mc < min_mc)  max_mc     <- max(min_mc, 1024L)
   if (!use_cpp || !.CPP_AVAILABLE || is.null(trees_xptr) ||
       !exists("inner_mc_perm_cpp", mode = "function"))
     stop("[TreeOwen] inner_mc_perm_cpp unavailable. Ensure C++ is loaded.")

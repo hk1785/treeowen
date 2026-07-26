@@ -18,7 +18,7 @@ treeowen(
  inner_antithetic = TRUE,
  target_se_inner = 1e-3,
  min_inner_mc = 32L,
- max_inner_mc = 512L,
+ max_inner_mc = 1024L,
  chunk_size_inner = 131072L,
  max_bytes = 512 * 1024^2,
  inner_bitmask_max = TREEOWEN_INNER_BITMASK_DEFAULT,
@@ -54,7 +54,7 @@ treeowen(
 \item{method}{Character string selecting the computation algorithm:
  \describe{
  \item{\code{"auto"}}{(default) Uses the exact method for groups
-  with fewer features than \code{auto_exact_max_m}, and Monte Carlo
+  with at most \code{auto_exact_max_m} features, and Monte Carlo
   for larger groups.}
  \item{\code{"exact"}}{Forces the exact method for all groups.
   Requires group size at most 60.}
@@ -82,7 +82,7 @@ treeowen(
  Default \code{32L}.}
 
 \item{max_inner_mc}{Integer. Maximum Monte Carlo pairs per context.
- Default \code{512L}.}
+ Default \code{1024L}.}
 
 \item{chunk_size_inner}{Integer. Batch size for inner forest
  evaluation. Default \code{131072L}.}
@@ -94,9 +94,10 @@ treeowen(
  bitmask-based exact enumerator. Default
  \code{TREEOWEN_INNER_BITMASK_DEFAULT} (60).}
 
-\item{auto_exact_max_m}{Integer. Groups with this many features or
- more use Monte Carlo when \code{method = "auto"}. Default
- \code{TREEOWEN_AUTO_EXACT_MAX_M} (30).}
+\item{auto_exact_max_m}{Integer. Groups with at most this many
+ features use exact enumeration when \code{method = "auto"}; larger
+ groups use Monte Carlo. Default
+ \code{TREEOWEN_AUTO_EXACT_MAX_M} (15).}
 
 \item{check_efficiency}{Logical. After computation, verify that Owen
  values sum to the prediction minus the average prediction for each
@@ -148,8 +149,8 @@ observations.
   pairs to estimate inner Shapley values. Sampling is controlled
   adaptively by \code{target_se_inner}, \code{min_inner_mc}, and
   \code{max_inner_mc}.}
- \item{Auto (\code{"auto"})}{Applies exact to groups with fewer
-  features than \code{auto_exact_max_m} and Monte Carlo to the rest.}
+ \item{Auto (\code{"auto"})}{Applies exact to groups with at most
+  \code{auto_exact_max_m} features and Monte Carlo to the rest.}
 }
 }
 \subsection{Efficiency axiom}{
